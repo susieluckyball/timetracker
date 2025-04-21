@@ -3,12 +3,14 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 63;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
+		066502FA650DB7F9C4AD914A /* appstore.png in Resources */ = {isa = PBXBuildFile; fileRef = 77AAEBF6FE07F4602AB9B460 /* appstore.png */; };
 		2BB36F7664368B34EC2A286F /* Activity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DA89A2239BB5453CF781FF7 /* Activity.swift */; };
 		2E27B2E0D45459086F04AFB4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DD8B6724F7446626BA0F4F5F /* Assets.xcassets */; };
+		4C2D9C409C989B14EA112A06 /* playstore.png in Resources */ = {isa = PBXBuildFile; fileRef = DB13D4DEFE6922910CF18308 /* playstore.png */; };
 		4CA43B77037000B6FD1379FE /* IconPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 221ADA96D0E6D0C463E48DD8 /* IconPreview.swift */; };
 		746BB9E6264EC1332D38B53D /* Views.swift in Sources */ = {isa = PBXBuildFile; fileRef = 641C79BAC8335E85011E8936 /* Views.swift */; };
 		AA278B3232902CFDA9DA203E /* TimeTrackerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E313F1E3D3766A436C41D45 /* TimeTrackerApp.swift */; };
@@ -20,9 +22,11 @@
 		2312F96997ED189961428330 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		5DA89A2239BB5453CF781FF7 /* Activity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Activity.swift; sourceTree = "<group>"; };
 		641C79BAC8335E85011E8936 /* Views.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views.swift; sourceTree = "<group>"; };
+		77AAEBF6FE07F4602AB9B460 /* appstore.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = appstore.png; sourceTree = "<group>"; };
 		9E313F1E3D3766A436C41D45 /* TimeTrackerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeTrackerApp.swift; sourceTree = "<group>"; };
-		A5474E4E0BCDFAF982ABA880 /* TimeTracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TimeTracker.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A5474E4E0BCDFAF982ABA880 /* TimeTracker.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TimeTracker.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C126B1F0DD1A83147D884850 /* ActivityStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityStore.swift; sourceTree = "<group>"; };
+		DB13D4DEFE6922910CF18308 /* playstore.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = playstore.png; sourceTree = "<group>"; };
 		DD8B6724F7446626BA0F4F5F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -48,11 +52,20 @@
 			children = (
 				5DA89A2239BB5453CF781FF7 /* Activity.swift */,
 				C126B1F0DD1A83147D884850 /* ActivityStore.swift */,
+				77AAEBF6FE07F4602AB9B460 /* appstore.png */,
 				DD8B6724F7446626BA0F4F5F /* Assets.xcassets */,
 				221ADA96D0E6D0C463E48DD8 /* IconPreview.swift */,
 				2312F96997ED189961428330 /* Info.plist */,
+				DB13D4DEFE6922910CF18308 /* playstore.png */,
 				9E313F1E3D3766A436C41D45 /* TimeTrackerApp.swift */,
 				641C79BAC8335E85011E8936 /* Views.swift */,
+			);
+			path = TimeTrackerSwift;
+			sourceTree = "<group>";
+		};
+		"TEMP_433B0D56-A109-49F3-915A-34460CC9DA38" /* TimeTrackerSwift */ = {
+			isa = PBXGroup;
+			children = (
 			);
 			path = TimeTrackerSwift;
 			sourceTree = "<group>";
@@ -86,6 +99,11 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					A2D8167A412AA3624C293EE7 = {
+						DevelopmentTeam = "";
+					};
+				};
 			};
 			buildConfigurationList = CA02C8256257C68402D03771 /* Build configuration list for PBXProject "TimeTracker" */;
 			compatibilityVersion = "Xcode 14.0";
@@ -97,6 +115,7 @@
 			);
 			mainGroup = 37D66370DC196F67598746FF;
 			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 54;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -111,6 +130,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				2E27B2E0D45459086F04AFB4 /* Assets.xcassets in Resources */,
+				066502FA650DB7F9C4AD914A /* appstore.png in Resources */,
+				4C2D9C409C989B14EA112A06 /* playstore.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -256,7 +277,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = 5ZWA4774ZC;
+				DEVELOPMENT_TEAM = "";
 				INFOPLIST_FILE = TimeTrackerSwift/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -273,7 +294,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = 5ZWA4774ZC;
+				DEVELOPMENT_TEAM = "";
 				INFOPLIST_FILE = TimeTrackerSwift/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

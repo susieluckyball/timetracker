@@ -1,53 +1,50 @@
-# Time Tracker App
+# Time Tracker
 
-A native iOS time tracking application built with Swift and SwiftUI.
+I used to have a Google sheet to track some activities. But I found visualization to be annoying. So I get cursor's help with this App. It's a very useful tool for me, and also an interesting project for me to go through iOS app development. 
 
 ## Features
-- Track time for different activities
-- Add new activities
-- View weekly statistics
-- Native iOS experience
-- Automatic data persistence
 
-## Development Requirements
-- Xcode 13 or later
-- iOS 15 or later
-- Swift 5.5 or later
+- 🎯 Track multiple activities with customized icons and colors
+- ⏱️ Easy time logging with hours and minutes input
+- 📊 Visual weekly progress with beautiful charts
+- 📅 Historical data view to see past activities
+- 🔔 Daily reminders to log your activities
+- 📱 Modern iOS design with intuitive interactions
 
-## Setup Instructions
+## Requirements
 
-1. Open the project in Xcode:
-   - Open Xcode
-   - Select "Open a project or file"
-   - Navigate to the TimeTrackerSwift directory
-   - Select the project
+- iOS 16.0+
+- Xcode 14.0+
+- Swift 5.0+
 
-2. Build and Run:
-   - Select your iOS device or simulator
-   - Click the "Play" button or press Cmd+R
+## Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/susiezhang/timetracker.git
+cd timetracker
+```
+
+2. Generate the Xcode project:
+```bash
+xcodegen generate
+```
+
+3. Open the project in Xcode:
+```bash
+open TimeTracker.xcodeproj
+```
+
+4. Build and run the app in Xcode (⌘+R)
 
 ## Usage
 
-1. Add Activities:
-   - Enter the activity name in the text field
-   - Click "Add"
-
-2. Track Time:
-   - Select an activity from the list
-   - Click "Start" to begin tracking
-   - Click "Stop" when finished
-
-3. View Statistics:
-   - Click "View Weekly Stats" to see your activity time for the past 7 days
-
-## Project Structure
-
-- `Activity.swift`: Data model and storage
-- `ContentView.swift`: Main app interface
-- `TimeTrackerApp.swift`: App entry point
-
-## Notes
-
-- The app uses UserDefaults for data persistence
-- All time tracking data is saved automatically
-- The weekly statistics view shows a list of activities and their times
+1. **Add Activities**: Tap the "+" button to add a new activity
+2. **Log Time**: 
+   - Tap the clock icon on any activity card to log time
+   - Enter hours and minutes spent on the activity
+3. **View Details**: 
+   - Tap anywhere else on the activity card to see detailed stats
+   - View weekly progress charts and breakdowns
+4. **History**: Tap the clock icon in the navigation bar to view past activities
+5. **Set Reminders**: Tap the bell icon to set daily reminder times
