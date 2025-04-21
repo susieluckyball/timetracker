@@ -1,0 +1,28 @@
+name: TimeTracker
+options:
+  bundleIdPrefix: com.yourname
+  deploymentTarget:
+    iOS: 15.0
+
+targets:
+  TimeTracker:
+    type: application
+    platform: iOS
+    sources:
+      - TimeTrackerSwift
+    settings:
+      base:
+        INFOPLIST_FILE: TimeTrackerSwift/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.yourname.TimeTracker
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    info:
+      path: TimeTrackerSwift/Info.plist
+      properties:
+        UILaunchStoryboardName: LaunchScreen
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UIRequiredDeviceCapabilities: [armv7]
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIBackgroundModes:
+          - remote-notification 

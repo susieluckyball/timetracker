@@ -55,17 +55,21 @@ struct ContentView: View {
                 .padding()
             }
             .navigationTitle("Time Tracker")
-            .sheet(isPresented: $showingTimeInput) {
-                TimeInputView(activity: selectedActivity!, onSave: { minutes in
-                    let updatedActivity = Activity(
-                        id: selectedActivity!.id,
-                        name: selectedActivity!.name,
-                        timeSpent: TimeInterval(minutes),
-                        date: Date()
-                    )
-                    activityStore.addActivity(updatedActivity)
-                    showingTimeInput = false
-                })
+            .sheet(isPresented: $showingTimeInput, onDismiss: {
+                selectedActivity = nil
+            }) {
+                if let activity = selectedActivity {
+                    TimeInputView(activity: activity, onSave: { minutes in
+                        let updatedActivity = Activity(
+                            id: activity.id,
+                            name: activity.name,
+                            timeSpent: TimeInterval(minutes),
+                            date: Date()
+                        )
+                        activityStore.addActivity(updatedActivity)
+                        showingTimeInput = false
+                    })
+                }
             }
             .sheet(isPresented: $showingReminderSettings) {
                 ReminderSettingsView(
