@@ -1,6 +1,40 @@
 import SwiftUI
 import Charts
 
+struct ActivityTheme {
+    let color: Color
+    let icon: String
+    
+    static let themes: [String: ActivityTheme] = [
+        "Reading": ActivityTheme(color: .blue, icon: "book.fill"),
+        "Exercise": ActivityTheme(color: .green, icon: "figure.run"),
+        "Work": ActivityTheme(color: .orange, icon: "briefcase.fill"),
+        "Study": ActivityTheme(color: .purple, icon: "graduationcap.fill"),
+        "Gaming": ActivityTheme(color: .red, icon: "gamecontroller.fill"),
+        "Meditation": ActivityTheme(color: .teal, icon: "leaf.fill"),
+        "Music": ActivityTheme(color: .pink, icon: "music.note"),
+        "Art": ActivityTheme(color: .indigo, icon: "paintbrush.fill"),
+        "Cooking": ActivityTheme(color: .yellow, icon: "fork.knife"),
+        "Sleep": ActivityTheme(color: .gray, icon: "moon.fill"),
+        "Podcast": ActivityTheme(color: .purple, icon: "headphones"),
+        "Gym": ActivityTheme(color: .red, icon: "dumbbell.fill")
+    ]
+    
+    static func getTheme(for activityName: String) -> ActivityTheme {
+        // Default theme for activities not in the predefined list
+        let defaultTheme = ActivityTheme(color: .blue, icon: "star.fill")
+        
+        // Check if the activity name contains any of our known keywords
+        for (keyword, theme) in themes {
+            if activityName.lowercased().contains(keyword.lowercased()) {
+                return theme
+            }
+        }
+        
+        return defaultTheme
+    }
+}
+
 // History View
 struct HistoryView: View {
     @ObservedObject var activityStore: ActivityStore
@@ -43,13 +77,22 @@ struct ActivityDetailView: View {
     let activityStore: ActivityStore
     @State private var showingDeleteAlert = false
     
+    private var theme: ActivityTheme {
+        ActivityTheme.getTheme(for: activity.name)
+    }
+    
     var body: some View {
         List {
             Section {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(activity.name)
-                        .font(.title2)
-                        .fontWeight(.bold)
+                    HStack {
+                        Image(systemName: theme.icon)
+                            .font(.title)
+                            .foregroundColor(theme.color)
+                        Text(activity.name)
+                            .font(.title2)
+                            .fontWeight(.bold)
+                    }
                     
                     Text("Total time: \(activity.formattedTime)")
                         .foregroundColor(.secondary)
@@ -63,7 +106,7 @@ struct ActivityDetailView: View {
                         x: .value("Week", week.weekLabel),
                         y: .value("Hours", week.hours)
                     )
-                    .foregroundStyle(Color.blue.gradient)
+                    .foregroundStyle(theme.color.gradient)
                 }
                 .frame(height: 200)
                 .padding(.vertical)
@@ -218,6 +261,10 @@ struct ActivityCard: View {
     let onTap: () -> Void
     @ObservedObject var activityStore: ActivityStore
     
+    private var theme: ActivityTheme {
+        ActivityTheme.getTheme(for: activity.name)
+    }
+    
     var body: some View {
         NavigationLink(destination: ActivityDetailView(
             activity: activity,
@@ -225,9 +272,14 @@ struct ActivityCard: View {
             activityStore: activityStore
         )) {
             VStack(alignment: .leading, spacing: 8) {
-                Text(activity.name)
-                    .font(.headline)
-                    .foregroundColor(.primary)
+                HStack {
+                    Image(systemName: theme.icon)
+                        .font(.title2)
+                        .foregroundColor(theme.color)
+                    Text(activity.name)
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                }
                 
                 Spacer()
                 
@@ -246,7 +298,7 @@ struct ActivityCard: View {
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: 120)
-            .background(Color(.systemGray6))
+            .background(theme.color.opacity(0.1))
             .cornerRadius(12)
         }
         .buttonStyle(PlainButtonStyle())
