@@ -146,8 +146,12 @@ class ActivityStore: ObservableObject {
     }
     
     func deleteActivity(_ id: UUID) {
-        // Remove the activity from the main activities array
-        activities.removeAll { $0.id == id }
+        // Get the name of the activity to delete
+        guard let activityName = activities.first(where: { $0.id == id })?.name else { return }
+        
+        // Remove all activities with this name
+        activities.removeAll { $0.name == activityName }
+        
         // Notify observers of the change
         objectWillChange.send()
     }

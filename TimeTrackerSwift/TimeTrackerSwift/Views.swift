@@ -95,12 +95,12 @@ struct ActivityDetailView: View {
         .navigationTitle("Activity Details")
         .alert("Delete Activity", isPresented: $showingDeleteAlert) {
             Button("Cancel", role: .cancel) { }
-            Button("Delete", role: .destructive) {
+            Button("Delete Everything", role: .destructive) {
                 activityStore.deleteActivity(activity.id)
                 presentationMode.wrappedValue.dismiss()
             }
         } message: {
-            Text("Are you sure you want to delete this activity? This action cannot be undone.")
+            Text("This will delete '\(activity.name)' and all of its history. This action cannot be undone.")
         }
     }
 }
@@ -138,7 +138,6 @@ struct ContentView: View {
                     
                     // Activities Grid
                     LazyVGrid(columns: [
-                        GridItem(.flexible(), spacing: 16),
                         GridItem(.flexible(), spacing: 16)
                     ], spacing: 16) {
                         // Add Activity Button
@@ -150,11 +149,12 @@ struct ContentView: View {
                                     .font(.headline)
                             }
                             .frame(maxWidth: .infinity)
-                            .frame(height: 120)
+                            .frame(height: 100)  // Slightly reduced height for single column
                             .background(Color.blue.opacity(0.1))
                             .foregroundColor(.blue)
                             .cornerRadius(12)
                         }
+                        .padding(.horizontal)
                         
                         // Today's Activities
                         ForEach(activityStore.todayActivities) { activity in
@@ -162,9 +162,9 @@ struct ContentView: View {
                                 selectedActivity = activity
                                 showingTimeInput = true
                             }, activityStore: activityStore)
+                            .padding(.horizontal)
                         }
                     }
-                    .padding(.horizontal)
                 }
                 .padding(.vertical)
             }
