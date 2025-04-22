@@ -1,5 +1,6 @@
 import SwiftUI
 import Charts
+import SwiftData
 
 struct ActivityTheme {
     let color: Color
@@ -45,7 +46,8 @@ struct HistoryView: View {
     }()
     
     var sortedDates: [Date] {
-        activityStore.historicalActivities.keys.sorted(by: >)
+        let dates = activityStore.historicalActivities.keys
+        return Array(dates).sorted(by: >)
     }
     
     var body: some View {
@@ -53,11 +55,11 @@ struct HistoryView: View {
             ForEach(sortedDates, id: \.self) { date in
                 Section(header: Text(dateFormatter.string(from: date))) {
                     if let activities = activityStore.historicalActivities[date] {
-                        ForEach(activities) { activity in
+                        ForEach(activities, id: \.startTime) { activity in
                             HStack {
                                 Text(activity.name)
                                 Spacer()
-                                Text(activity.formattedTime)
+                                Text(activity.toActivity().formattedTime)
                                     .foregroundColor(.secondary)
                             }
                         }
@@ -71,7 +73,7 @@ struct HistoryView: View {
 
 // Activity Detail View
 struct ActivityDetailView: View {
-    let activity: Activity
+    let activity: PersistentActivity
     let weeklyData: [WeeklyStats]
     @Environment(\.presentationMode) var presentationMode
     let activityStore: ActivityStore
@@ -94,7 +96,7 @@ struct ActivityDetailView: View {
                             .fontWeight(.bold)
                     }
                     
-                    Text("Total time: \(activity.formattedTime)")
+                    Text("Total time: \(activity.toActivity().formattedTime)")
                         .foregroundColor(.secondary)
                 }
                 .padding(.vertical, 8)
@@ -139,7 +141,7 @@ struct ActivityDetailView: View {
         .alert("Delete Activity", isPresented: $showingDeleteAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Delete Everything", role: .destructive) {
-                activityStore.deleteActivity(activity.id)
+                activityStore.deleteActivity(activity)
                 presentationMode.wrappedValue.dismiss()
             }
         } message: {
@@ -148,116 +150,9 @@ struct ActivityDetailView: View {
     }
 }
 
-// Main Content View
-struct ContentView: View {
-    @StateObject private var activityStore = ActivityStore()
-    @State private var showingTimeInput = false
-    @State private var showingAddActivity = false
-    @State private var selectedActivity: Activity?
-    @State private var showingReminderSettings = false
-    
-    private var dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEEE, MMMM d"
-        return formatter
-    }()
-    
-    var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Today's Date Header
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(dateFormatter.string(from: Date()))
-                            .font(.title)
-                            .fontWeight(.bold)
-                            .foregroundColor(.primary)
-                        Text("Susie: Track your time!")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal)
-                    
-                    // Activities Grid
-                    LazyVGrid(columns: [
-                        GridItem(.flexible(), spacing: 16)
-                    ], spacing: 16) {
-                        // Add Activity Button
-                        Button(action: { showingAddActivity = true }) {
-                            VStack(spacing: 12) {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 30))
-                                Text("Add Activity")
-                                    .font(.headline)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 100)  // Slightly reduced height for single column
-                            .background(Color.blue.opacity(0.1))
-                            .foregroundColor(.blue)
-                            .cornerRadius(12)
-                        }
-                        .padding(.horizontal)
-                        
-                        // Today's Activities
-                        ForEach(activityStore.todayActivities) { activity in
-                            ActivityCard(activity: activity, onTap: {
-                                selectedActivity = activity
-                                showingTimeInput = true
-                            }, activityStore: activityStore)
-                            .padding(.horizontal)
-                        }
-                    }
-                }
-                .padding(.vertical)
-            }
-            .navigationTitle("Time Tracker")
-            .navigationBarItems(
-                leading: NavigationLink(destination: HistoryView(activityStore: activityStore)) {
-                    Image(systemName: "clock.arrow.circlepath")
-                        .font(.title2)
-                },
-                trailing: Button(action: { showingReminderSettings = true }) {
-                    Image(systemName: "bell.circle.fill")
-                        .font(.title2)
-                }
-            )
-            .sheet(isPresented: $showingAddActivity) {
-                AddActivitySheet(isPresented: $showingAddActivity) { name in
-                    let activity = Activity(name: name, timeSpent: 0, date: Date())
-                    activityStore.addActivity(activity)
-                }
-            }
-            .sheet(isPresented: $showingTimeInput) {
-                NavigationView {
-                    TimeInputView(
-                        activity: selectedActivity ?? Activity(name: "", timeSpent: 0, date: Date()),
-                        isPresented: $showingTimeInput,
-                        onSave: { minutes in
-                            if let activity = selectedActivity {
-                                let timeInSeconds = TimeInterval(minutes * 60)
-                                activityStore.updateActivityTime(activity.id, timeSpent: timeInSeconds)
-                            }
-                        }
-                    )
-                }
-            }
-            .sheet(isPresented: $showingReminderSettings) {
-                ReminderSettingsView(
-                    reminderTime: activityStore.dailyReminderTime,
-                    onSave: { newTime in
-                        activityStore.updateReminderTime(newTime)
-                        showingReminderSettings = false
-                    }
-                )
-            }
-        }
-    }
-}
-
 // Activity Card View
 struct ActivityCard: View {
-    let activity: Activity
+    let activity: PersistentActivity
     let onTap: () -> Void
     @ObservedObject var activityStore: ActivityStore
     
@@ -284,13 +179,11 @@ struct ActivityCard: View {
                 Spacer()
                 
                 HStack {
-                    Button(action: {
-                        onTap()
-                    }) {
+                    Button(action: onTap) {
                         Image(systemName: "clock")
                             .foregroundColor(.secondary)
                     }
-                    Text(activity.formattedTime)
+                    Text(activity.toActivity().formattedTime)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
@@ -355,7 +248,7 @@ struct TimeInputView: View {
                     TextField("Hours", text: $hours)
                         .keyboardType(.numberPad)
                         .focused($focusedField, equals: .hours)
-                        .onChange(of: hours) { newValue in
+                        .onChange(of: hours) { oldValue, newValue in
                             if let number = Int(newValue), number > 23 {
                                 hours = "23"
                             }
@@ -371,7 +264,7 @@ struct TimeInputView: View {
                     TextField("Minutes", text: $minutes)
                         .keyboardType(.numberPad)
                         .focused($focusedField, equals: .minutes)
-                        .onChange(of: minutes) { newValue in
+                        .onChange(of: minutes) { oldValue, newValue in
                             if let number = Int(newValue), number > 59 {
                                 minutes = "59"
                             }
@@ -456,37 +349,13 @@ struct ReminderSettingsView: View {
 }
 
 // Preview Providers
-struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        ContentView()
+#Preview {
+    let preview = try! ModelContainer(for: PersistentActivity.self)
+    let store = ActivityStore()
+    store.setModelContext(preview.mainContext)
+    
+    return NavigationView {
+        HistoryView(activityStore: store)
     }
-}
-
-struct HistoryView_Previews: PreviewProvider {
-    static var previews: some View {
-        NavigationView {
-            HistoryView(activityStore: ActivityStore())
-        }
-    }
-}
-
-struct ActivityDetailView_Previews: PreviewProvider {
-    static var previews: some View {
-        let sampleActivity = Activity(name: "Sample Activity", timeSpent: 3600, date: Date())
-        let calendar = Calendar.current
-        let store = ActivityStore()
-        
-        return NavigationView {
-            ActivityDetailView(
-                activity: sampleActivity,
-                weeklyData: [
-                    WeeklyStats(weekStart: calendar.date(byAdding: .day, value: -21, to: Date())!, hours: 2.5, activity: sampleActivity),
-                    WeeklyStats(weekStart: calendar.date(byAdding: .day, value: -14, to: Date())!, hours: 3.0, activity: sampleActivity),
-                    WeeklyStats(weekStart: calendar.date(byAdding: .day, value: -7, to: Date())!, hours: 1.5, activity: sampleActivity),
-                    WeeklyStats(weekStart: Date(), hours: 4.0, activity: sampleActivity)
-                ],
-                activityStore: store
-            )
-        }
-    }
+    .modelContainer(preview)
 } 

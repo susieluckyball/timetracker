@@ -2,7 +2,7 @@ name: TimeTracker
 options:
   bundleIdPrefix: com.yourname
   deploymentTarget:
-    iOS: 16.0
+    iOS: 17.0
 
 targets:
   TimeTracker:
@@ -10,11 +10,6 @@ targets:
     platform: iOS
     sources:
       - path: TimeTrackerSwift
-        excludes:
-          - "TimeTrackerSwift/TimeTrackerSwift/**"
-          - "TimeTrackerSwift/ContentView.swift"
-          - "TimeTrackerSwift/HistoryView.swift"
-          - "TimeTrackerSwift/ActivityDetailView.swift"
     settings:
       base:
         INFOPLIST_FILE: TimeTrackerSwift/Info.plist

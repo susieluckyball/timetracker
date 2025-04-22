@@ -1,8 +1,10 @@
 import Foundation
+import SwiftData
 
-struct Activity: Identifiable, Codable {
-    let id: UUID
-    let name: String
+@Model
+final class Activity {
+    var id: UUID
+    var name: String
     var timeSpent: TimeInterval
     var date: Date
     
