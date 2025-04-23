@@ -20,22 +20,50 @@ class ActivityStore: ObservableObject {
     @Published var activities: [PersistentActivity] = []
     @Published var dailyReminderTime: Date
     
-    var todayActivities: [PersistentActivity] {
+    var dashboardActivities: [PersistentActivity] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         
-        return activities.filter { activity in
-            calendar.isDate(activity.startTime, inSameDayAs: today)
-        }.sorted(by: { $0.name < $1.name })
+        // Get all unique activity names
+        let uniqueNames = Set(activities.map { $0.name })
+        
+        // For each unique name, get or create today's activity
+        let todayActivities = uniqueNames.compactMap { name -> PersistentActivity? in
+            // Try to find an existing activity for today
+            if let existing = activities.first(where: { activity in
+                activity.name == name && calendar.isDate(activity.startTime, inSameDayAs: today)
+            }) {
+                return existing
+            }
+            
+            // Create a new activity for today if it doesn't exist
+            let newActivity = PersistentActivity(
+                name: name,
+                startTime: today,
+                endTime: nil,
+                isActive: false,
+                timeSpent: 0
+            )
+            
+            if let context = modelContext {
+                context.insert(newActivity)
+                activities.append(newActivity)
+                return newActivity
+            }
+            
+            return nil
+        }
+        
+        return todayActivities.sorted(by: { $0.name < $1.name })
     }
     
     var historicalActivities: [Date: [PersistentActivity]] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         
-        // Group activities by date
+        // Group activities by date, excluding activities with 0 duration
         let byDate = Dictionary(grouping: activities.filter { activity in
-            !calendar.isDate(activity.startTime, inSameDayAs: today)
+            !calendar.isDate(activity.startTime, inSameDayAs: today) && activity.duration > 0
         }) { activity in
             calendar.startOfDay(for: activity.startTime)
         }
@@ -62,8 +90,13 @@ class ActivityStore: ObservableObject {
         guard let context = modelContext else { return }
         
         do {
-            let descriptor = FetchDescriptor<PersistentActivity>(sortBy: [SortDescriptor(\.startTime, order: .reverse)])
+            let descriptor = FetchDescriptor<PersistentActivity>(
+                sortBy: [SortDescriptor(\.startTime, order: .reverse)]
+            )
             activities = try context.fetch(descriptor)
+            
+            // Create today's activities if needed
+            _ = dashboardActivities
         } catch {
             print("Failed to load activities: \(error)")
             activities = []
@@ -75,13 +108,37 @@ class ActivityStore: ObservableObject {
         UserDefaults.standard.set(newTime, forKey: "dailyReminderTime")
     }
     
-    func addActivity(name: String) {
+    func addActivity(name: String, date: Date = Date(), duration: TimeInterval? = nil) {
         guard let context = modelContext else { return }
         
-        let activity = PersistentActivity(name: name)
-        context.insert(activity)
-        activities.append(activity)
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        
+        // Check if activity already exists for this day
+        if let existingActivity = activities.first(where: { activity in
+            activity.name == name && calendar.isDate(activity.startTime, inSameDayAs: startOfDay)
+        }) {
+            // Update existing activity
+            if let duration = duration {
+                existingActivity.timeSpent = duration
+                existingActivity.endTime = date.addingTimeInterval(duration)
+                existingActivity.isActive = false
+            }
+        } else {
+            // Create new activity
+            let activity = PersistentActivity(
+                name: name,
+                startTime: date,
+                endTime: duration != nil ? date.addingTimeInterval(duration!) : nil,
+                isActive: false,
+                timeSpent: duration
+            )
+            context.insert(activity)
+            activities.append(activity)
+        }
+        
         saveContext()
+        objectWillChange.send()
     }
     
     func startTracking(_ activity: PersistentActivity) {
@@ -115,14 +172,19 @@ class ActivityStore: ObservableObject {
     }
     
     func getWeeklyStats(for activity: PersistentActivity, numberOfWeeks: Int = 4) -> [WeeklyStats] {
-        let calendar = Calendar.current
+        var calendar = Calendar.current
+        calendar.firstWeekday = 1  // 1 = Sunday
         let today = Date()
         
         var weekStarts: [Date] = []
         for weekIndex in 0..<numberOfWeeks {
-            if let weekStart = calendar.date(byAdding: .day,
-                                          value: -(weekIndex * 7),
-                                          to: calendar.startOfDay(for: today)) {
+            // Find the most recent Sunday
+            let todayWeekday = calendar.component(.weekday, from: today)
+            let daysToSubtract = todayWeekday - 1
+            
+            // Calculate the start of the current week (Sunday)
+            if let currentWeekStart = calendar.date(byAdding: .day, value: -daysToSubtract, to: calendar.startOfDay(for: today)),
+               let weekStart = calendar.date(byAdding: .day, value: -(weekIndex * 7), to: currentWeekStart) {
                 weekStarts.insert(weekStart, at: 0)
             }
         }
@@ -148,7 +210,7 @@ class ActivityStore: ObservableObject {
         }
     }
     
-    private func saveContext() {
+    func saveContext() {
         guard let context = modelContext else { return }
         
         do {

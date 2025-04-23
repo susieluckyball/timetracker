@@ -36,4 +36,16 @@ final class PersistentActivity {
     static func fromActivity(_ activity: Activity) -> PersistentActivity {
         return PersistentActivity(name: activity.name, startTime: activity.date, timeSpent: activity.timeSpent)
     }
+}
+
+extension PersistentActivity: Hashable {
+    static func == (lhs: PersistentActivity, rhs: PersistentActivity) -> Bool {
+        lhs.name == rhs.name && 
+        Calendar.current.isDate(lhs.startTime, inSameDayAs: rhs.startTime)
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(name)
+        hasher.combine(Calendar.current.startOfDay(for: startTime))
+    }
 } 
