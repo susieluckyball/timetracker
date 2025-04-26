@@ -313,6 +313,8 @@ struct TimeInputView: View {
         if totalMinutes > 0 {
             onSave(totalMinutes)
             isPresented = false
+        } else {
+            isPresented = false
         }
     }
 }

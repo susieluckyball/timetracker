@@ -128,11 +128,6 @@ struct ContentView: View {
                                     endPoint: .trailing
                                 )
                             )
-                        
-                        Text("Track Your Time ✨")
-                            .font(.system(size: 18, weight: .medium, design: .rounded))
-                            .foregroundColor(.secondary)
-                            .padding(.leading, 2)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal)
@@ -215,7 +210,7 @@ struct ContentView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("Timekeeper")
+                    Text("Susie's Timekeeper")
                         .font(.system(size: 24, weight: .bold, design: .rounded))
                         .foregroundStyle(
                             LinearGradient(
@@ -276,11 +271,21 @@ struct ContentView: View {
                         onSave: { minutes in
                             if let activity = selectedActivity {
                                 let timeInSeconds = TimeInterval(minutes * 60)
-                                activity.timeSpent = timeInSeconds
-                                activity.endTime = activity.startTime.addingTimeInterval(timeInSeconds)
-                                activity.isActive = false
-                                activityStore.saveContext()
-                                activityStore.objectWillChange.send()
+                                
+                                // Check if this is a temporary activity (not yet in database)
+                                if activity.timeSpent == 0 && !activityStore.activities.contains(where: { 
+                                    $0.name == activity.name && 
+                                    Calendar.current.isDate($0.startTime, inSameDayAs: activity.startTime) 
+                                }) {
+                                    // It's a temporary activity, create a new persistent one
+                                    activityStore.addActivity(name: activity.name, duration: timeInSeconds)
+                                } else {
+                                    // Update existing activity
+                                    activity.timeSpent = timeInSeconds
+                                    activity.isActive = false
+                                    activityStore.saveContext()
+                                    activityStore.objectWillChange.send()
+                                }
                                 selectedActivity = nil
                             }
                         }

@@ -5,28 +5,20 @@ import SwiftData
 final class PersistentActivity {
     var name: String
     var startTime: Date
-    var endTime: Date?
     var isActive: Bool
-    var timeSpent: TimeInterval?
+    var timeSpent: TimeInterval
     
-    init(name: String, startTime: Date = Date(), endTime: Date? = nil, isActive: Bool = false, timeSpent: TimeInterval? = nil) {
+    init(name: String, startTime: Date = Date(), isActive: Bool = false, timeSpent: TimeInterval) {
         self.name = name
         self.startTime = startTime
-        self.endTime = endTime
         self.isActive = isActive
         self.timeSpent = timeSpent
     }
     
     var duration: TimeInterval {
-        if let timeSpent = timeSpent {
-            return timeSpent
-        }
-        if isActive, let endTime = endTime {
-            return endTime.timeIntervalSince(startTime)
-        }
-        return 0
+        return timeSpent
     }
-    
+
     // Convert to regular Activity
     func toActivity() -> Activity {
         return Activity(id: UUID(), name: name, timeSpent: duration, date: startTime)

@@ -42,16 +42,26 @@ struct ActivityRow: View {
 }
 
 #Preview {
-    do {
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: PersistentActivity.self, configurations: config)
-        let activity = PersistentActivity(name: "Sample Activity")
-        let store = ActivityStore()
-        store.setModelContext(container.mainContext)
-        
-        return ActivityRow(activity: activity, activityStore: store)
-            .modelContainer(container)
-    } catch {
-        return Text("Failed to create preview: \(error.localizedDescription)")
-    }
-} 
+    Text("ActivityRow Preview")
+        .padding()
+}
+
+// #Preview {
+//     let config = ModelConfiguration(isStoredInMemoryOnly: true)
+//     let container = try! ModelContainer(for: PersistentActivity.self, configurations: config)
+    
+//     let activity = PersistentActivity(
+//         name: "Sample Activity", 
+//         startTime: Date(), 
+//         isActive: false, 
+//         timeSpent: 0
+//     )
+    
+//     let store = ActivityStore()
+//     store.setModelContext(container.mainContext)
+    
+//     Group {
+//         ActivityRow(activity: activity, activityStore: store)
+//             .modelContainer(container)
+//     }
+// }

@@ -52,7 +52,7 @@ struct ActivityListView: View {
     }
     
     private func addActivity() {
-        activityStore.addActivity(name: newActivityName)
+        activityStore.addActivity(name: newActivityName, duration: 0)
     }
     
     private func deleteActivity(at offsets: IndexSet) {

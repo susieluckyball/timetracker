@@ -36,22 +36,15 @@ class ActivityStore: ObservableObject {
                 return existing
             }
             
-            // Create a new activity for today if it doesn't exist
-            let newActivity = PersistentActivity(
+            // Create a temporary activity for display only (not inserted into context)
+            let tempActivity = PersistentActivity(
                 name: name,
                 startTime: today,
-                endTime: nil,
                 isActive: false,
                 timeSpent: 0
             )
             
-            if let context = modelContext {
-                context.insert(newActivity)
-                activities.append(newActivity)
-                return newActivity
-            }
-            
-            return nil
+            return tempActivity
         }
         
         return todayActivities.sorted(by: { $0.name < $1.name })
@@ -108,7 +101,7 @@ class ActivityStore: ObservableObject {
         UserDefaults.standard.set(newTime, forKey: "dailyReminderTime")
     }
     
-    func addActivity(name: String, date: Date = Date(), duration: TimeInterval? = nil) {
+    func addActivity(name: String, date: Date = Date(), duration: TimeInterval = 0) {
         guard let context = modelContext else { return }
         
         let calendar = Calendar.current
@@ -119,17 +112,13 @@ class ActivityStore: ObservableObject {
             activity.name == name && calendar.isDate(activity.startTime, inSameDayAs: startOfDay)
         }) {
             // Update existing activity
-            if let duration = duration {
-                existingActivity.timeSpent = duration
-                existingActivity.endTime = date.addingTimeInterval(duration)
-                existingActivity.isActive = false
-            }
+            existingActivity.timeSpent = duration
+            existingActivity.isActive = false
         } else {
             // Create new activity
             let activity = PersistentActivity(
                 name: name,
                 startTime: date,
-                endTime: duration != nil ? date.addingTimeInterval(duration!) : nil,
                 isActive: false,
                 timeSpent: duration
             )
@@ -144,16 +133,15 @@ class ActivityStore: ObservableObject {
     func startTracking(_ activity: PersistentActivity) {
         activity.isActive = true
         activity.startTime = Date()
-        activity.endTime = nil
         saveContext()
         objectWillChange.send()
     }
     
     func stopTracking(_ activity: PersistentActivity) {
-        guard let endTime = activity.endTime else { return }
+        // Calculate duration since activity started tracking
+        let duration = Date().timeIntervalSince(activity.startTime)
         
-        // Update the existing activity's duration
-        let duration = endTime.timeIntervalSince(activity.startTime)
+        // Update activity
         activity.isActive = false
         activity.timeSpent = duration
         
@@ -171,45 +159,44 @@ class ActivityStore: ObservableObject {
         saveContext()
     }
     
-    func getWeeklyStats(for activity: PersistentActivity, numberOfWeeks: Int = 4) -> [WeeklyStats] {
-        var calendar = Calendar.current
-        calendar.firstWeekday = 1  // 1 = Sunday
-        let today = Date()
+func getWeeklyStats(for activity: PersistentActivity, numberOfWeeks: Int = 4) -> [WeeklyStats] {
+    var calendar = Calendar.current
+    calendar.firstWeekday = 1  // 1 = Sunday
+    let today = Date()
+    
+    var weekStarts: [Date] = []
+    for weekIndex in 0..<numberOfWeeks {
+        // Find the most recent Sunday
+        let todayWeekday = calendar.component(.weekday, from: today)
+        let daysToSubtract = todayWeekday - 1
         
-        var weekStarts: [Date] = []
-        for weekIndex in 0..<numberOfWeeks {
-            // Find the most recent Sunday
-            let todayWeekday = calendar.component(.weekday, from: today)
-            let daysToSubtract = todayWeekday - 1
-            
-            // Calculate the start of the current week (Sunday)
-            if let currentWeekStart = calendar.date(byAdding: .day, value: -daysToSubtract, to: calendar.startOfDay(for: today)),
-               let weekStart = calendar.date(byAdding: .day, value: -(weekIndex * 7), to: currentWeekStart) {
-                weekStarts.insert(weekStart, at: 0)
-            }
-        }
-        
-        return weekStarts.map { weekStart in
-            let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart)!
-            
-            let weeklyTime = activities
-                .filter { $0.name == activity.name }
-                .filter { activity in
-                    let activityDate = activity.startTime
-                    return activityDate >= weekStart && activityDate < weekEnd
-                }
-                .reduce(0.0) { sum, activity in
-                    sum + (activity.timeSpent ?? 0)
-                }
-            
-            return WeeklyStats(
-                weekStart: weekStart,
-                hours: weeklyTime / 3600.0,
-                activity: activity.toActivity()
-            )
+        // Calculate the start of the current week (Sunday)
+        if let currentWeekStart = calendar.date(byAdding: .day, value: -daysToSubtract, to: calendar.startOfDay(for: today)),
+           let weekStart = calendar.date(byAdding: .day, value: -(weekIndex * 7), to: currentWeekStart) {
+            weekStarts.insert(weekStart, at: 0)
         }
     }
     
+    return weekStarts.map { weekStart in
+        let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart)!
+        
+        let weeklyTime = activities
+            .filter { $0.name == activity.name }
+            .filter { activity in
+                let activityDate = activity.startTime
+                return activityDate >= weekStart && activityDate < weekEnd
+            }
+            .reduce(0.0) { sum, activity in
+                sum + activity.timeSpent
+            }
+        
+        return WeeklyStats(
+            weekStart: weekStart,
+            hours: weeklyTime / 3600.0,
+            activity: activity.toActivity()
+        )
+    }
+}
     func saveContext() {
         guard let context = modelContext else { return }
         
