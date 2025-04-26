@@ -7,11 +7,20 @@ struct HistoricalInputView: View {
     let onSave: (String, Date, TimeInterval) -> Void
     
     @State private var selectedActivity: String = ""
-    @State private var selectedDate: Date = Date()
+    @State private var selectedDate: Date
     @State private var hours: Int = 0
     @State private var minutes: Int = 0
     @State private var isNewActivity: Bool = false
     @State private var newActivityName: String = ""
+    
+    init(isPresented: Binding<Bool>, activityStore: ActivityStore, onSave: @escaping (String, Date, TimeInterval) -> Void) {
+        self._isPresented = isPresented
+        self.activityStore = activityStore
+        self.onSave = onSave
+        
+        // Initialize date with the last historical input date
+        self._selectedDate = State(initialValue: activityStore.lastHistoricalInputDate)
+    }
     
     private var existingActivities: [String] {
         // Get unique activity names
@@ -65,8 +74,8 @@ struct HistoricalInputView: View {
                         .frame(width: 100)
                         
                         Picker("Minutes", selection: $minutes) {
-                            ForEach(0..<60) { minute in
-                                Text("\(minute)m").tag(minute)
+                            ForEach(0..<12) { minute in
+                                Text("\(minute * 5)m").tag(minute * 5)
                             }
                         }
                         .pickerStyle(.wheel)
@@ -109,6 +118,9 @@ struct HistoricalInputView: View {
                     // Only save if we have valid data
                     if !activityName.isEmpty && duration > 0 {
                         onSave(activityName, startOfDay, duration)
+                        
+                        // Update the last historical input date
+                        activityStore.updateLastHistoricalInputDate(startOfDay)
                         
                         // Reset the form
                         newActivityName = ""

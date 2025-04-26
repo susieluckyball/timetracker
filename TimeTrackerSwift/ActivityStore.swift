@@ -19,6 +19,7 @@ class ActivityStore: ObservableObject {
     private var modelContext: ModelContext?
     @Published var activities: [PersistentActivity] = []
     @Published var dailyReminderTime: Date
+    @Published var lastHistoricalInputDate: Date
     
     // Debug property to track activity additions
     private var isDebugMode = true
@@ -76,11 +77,21 @@ class ActivityStore: ObservableObject {
     
     init() {
         // Initialize daily reminder time (default to 8 PM)
-        if let savedTime = UserDefaults.standard.object(forKey: "dailyReminderTime") as? Date {
-            self.dailyReminderTime = savedTime
-        } else {
-            self.dailyReminderTime = Calendar.current.date(from: DateComponents(hour: 20, minute: 0)) ?? Date()
-            UserDefaults.standard.set(self.dailyReminderTime, forKey: "dailyReminderTime")
+        let defaultReminderTime = Calendar.current.date(from: DateComponents(hour: 20, minute: 0)) ?? Date()
+        let savedReminderTime = UserDefaults.standard.object(forKey: "dailyReminderTime") as? Date
+        self.dailyReminderTime = savedReminderTime ?? defaultReminderTime
+        
+        // Initialize last historical input date (default to yesterday)
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
+        let savedHistoricalDate = UserDefaults.standard.object(forKey: "lastHistoricalInputDate") as? Date
+        self.lastHistoricalInputDate = savedHistoricalDate ?? yesterday
+        
+        // Save default values if needed
+        if savedReminderTime == nil {
+            UserDefaults.standard.set(dailyReminderTime, forKey: "dailyReminderTime")
+        }
+        if savedHistoricalDate == nil {
+            UserDefaults.standard.set(lastHistoricalInputDate, forKey: "lastHistoricalInputDate")
         }
     }
     
@@ -113,6 +124,11 @@ class ActivityStore: ObservableObject {
     func updateReminderTime(_ newTime: Date) {
         dailyReminderTime = newTime
         UserDefaults.standard.set(newTime, forKey: "dailyReminderTime")
+    }
+    
+    func updateLastHistoricalInputDate(_ date: Date) {
+        lastHistoricalInputDate = date
+        UserDefaults.standard.set(date, forKey: "lastHistoricalInputDate")
     }
     
     func addActivity(name: String, date: Date = Date(), duration: TimeInterval? = 0) {
