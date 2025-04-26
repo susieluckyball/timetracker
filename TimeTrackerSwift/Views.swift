@@ -55,7 +55,7 @@ struct HistoryView: View {
             ForEach(sortedDates, id: \.self) { date in
                 Section(header: Text(dateFormatter.string(from: date))) {
                     if let activities = activityStore.historicalActivities[date] {
-                        ForEach(activities, id: \.startTime) { activity in
+                        ForEach(activities, id: \.id) { activity in
                             HStack {
                                 Text(activity.name)
                                 Spacer()

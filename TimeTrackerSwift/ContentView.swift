@@ -1,7 +1,6 @@
 import SwiftUI
 import SwiftData
 
-// Historical Input View
 struct HistoricalInputView: View {
     @Binding var isPresented: Bool
     @ObservedObject var activityStore: ActivityStore
@@ -15,6 +14,7 @@ struct HistoricalInputView: View {
     @State private var newActivityName: String = ""
     
     private var existingActivities: [String] {
+        // Get unique activity names
         Array(Set(activityStore.activities.map { $0.name })).sorted()
     }
     
@@ -31,12 +31,18 @@ struct HistoricalInputView: View {
                     
                     if isNewActivity {
                         TextField("New Activity Name", text: $newActivityName)
-                    } else {
+                            .onChange(of: newActivityName) { oldValue, newValue in
+                                newActivityName = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                            }
+                    } else if !existingActivities.isEmpty {
                         Picker("Activity", selection: $selectedActivity) {
                             ForEach(existingActivities, id: \.self) { activity in
                                 Text(activity).tag(activity)
                             }
                         }
+                    } else {
+                        Text("No existing activities")
+                            .foregroundColor(.secondary)
                     }
                 }
                 
@@ -68,6 +74,20 @@ struct HistoricalInputView: View {
                     }
                     .padding(.vertical)
                 }
+                
+                #if DEBUG
+                // Debug section to see current state
+                Section(header: Text("Debug Info")) {
+                    Text("Using new activity: \(isNewActivity ? "Yes" : "No")")
+                    if isNewActivity {
+                        Text("New activity name: \"\(newActivityName)\"")
+                    } else {
+                        Text("Selected activity: \"\(selectedActivity)\"")
+                    }
+                    Text("Date: \(selectedDate, format: .dateTime)")
+                    Text("Duration: \(hours)h \(minutes)m")
+                }
+                #endif
             }
             .navigationTitle("Add Past Activity")
             .navigationBarItems(
@@ -75,21 +95,47 @@ struct HistoricalInputView: View {
                     isPresented = false
                 },
                 trailing: Button("Save") {
-                    let activityName = isNewActivity ? newActivityName : selectedActivity
+                    let activityName: String
+                    if isNewActivity {
+                        activityName = newActivityName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    } else {
+                        activityName = selectedActivity
+                    }
+                    
+                    let calendar = Calendar.current
+                    let startOfDay = calendar.startOfDay(for: selectedDate)
                     let duration = TimeInterval(hours * 3600 + minutes * 60)
-                    onSave(activityName, selectedDate, duration)
-                    isPresented = false
+                    
+                    // Only save if we have valid data
+                    if !activityName.isEmpty && duration > 0 {
+                        onSave(activityName, startOfDay, duration)
+                        
+                        // Reset the form
+                        newActivityName = ""
+                        hours = 0
+                        minutes = 0
+                        
+                        isPresented = false
+                    }
                 }
-                .disabled((isNewActivity && newActivityName.isEmpty) || 
-                         (!isNewActivity && selectedActivity.isEmpty) ||
+                .disabled((isNewActivity && newActivityName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) || 
+                         (!isNewActivity && (selectedActivity.isEmpty || existingActivities.isEmpty)) ||
                          (hours == 0 && minutes == 0))
             )
         }
         .onAppear {
-            if let firstActivity = existingActivities.first {
+            // Reset state when view appears
+            if let firstActivity = existingActivities.first, !isNewActivity {
                 selectedActivity = firstActivity
             }
         }
+    }
+}
+
+// Extension to trim whitespace and newlines from strings
+extension String {
+    func trim() -> String {
+        return self.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 

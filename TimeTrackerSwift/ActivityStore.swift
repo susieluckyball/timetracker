@@ -20,6 +20,9 @@ class ActivityStore: ObservableObject {
     @Published var activities: [PersistentActivity] = []
     @Published var dailyReminderTime: Date
     
+    // Debug property to track activity additions
+    private var isDebugMode = true
+    
     var dashboardActivities: [PersistentActivity] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
@@ -36,15 +39,22 @@ class ActivityStore: ObservableObject {
                 return existing
             }
             
-            // Create a temporary activity for display only (not inserted into context)
-            let tempActivity = PersistentActivity(
+            // Create a new activity for today if it doesn't exist
+            let newActivity = PersistentActivity(
                 name: name,
                 startTime: today,
                 isActive: false,
                 timeSpent: 0
             )
             
-            return tempActivity
+            if let context = modelContext {
+                context.insert(newActivity)
+                activities.append(newActivity)
+                saveContext() // Save immediately after insertion
+                return newActivity
+            }
+            
+            return nil
         }
         
         return todayActivities.sorted(by: { $0.name < $1.name })
@@ -88,8 +98,12 @@ class ActivityStore: ObservableObject {
             )
             activities = try context.fetch(descriptor)
             
-            // Create today's activities if needed
-            _ = dashboardActivities
+            if isDebugMode {
+                print("Loaded \(activities.count) activities")
+                for activity in activities {
+                    print("  - \(activity.name) on \(activity.startTime), timeSpent: \(activity.timeSpent)")
+                }
+            }
         } catch {
             print("Failed to load activities: \(error)")
             activities = []
@@ -101,33 +115,64 @@ class ActivityStore: ObservableObject {
         UserDefaults.standard.set(newTime, forKey: "dailyReminderTime")
     }
     
-    func addActivity(name: String, date: Date = Date(), duration: TimeInterval = 0) {
+    func addActivity(name: String, date: Date = Date(), duration: TimeInterval? = 0) {
         guard let context = modelContext else { return }
+        
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Don't allow empty activity names
+        if trimmedName.isEmpty {
+            return
+        }
         
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: date)
         
-        // Check if activity already exists for this day
-        if let existingActivity = activities.first(where: { activity in
-            activity.name == name && calendar.isDate(activity.startTime, inSameDayAs: startOfDay)
-        }) {
+        if isDebugMode {
+            print("Adding activity: \(trimmedName) for date \(startOfDay), duration: \(duration ?? 0)")
+        }
+        
+        // First, fetch the latest activities to ensure we have the most current data
+        loadActivities()
+        
+        // Check if activity already exists for this day - use exact matching for name
+        let existingActivityIndex = activities.firstIndex(where: { activity in
+            let activityName = activity.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            return activityName == trimmedName && calendar.isDate(activity.startTime, inSameDayAs: startOfDay)
+        })
+        
+        if let index = existingActivityIndex {
             // Update existing activity
-            existingActivity.timeSpent = duration
+            let existingActivity = activities[index]
+            
+            if isDebugMode {
+                print("Found existing activity: \(existingActivity.name) on \(existingActivity.startTime)")
+            }
+            
+            existingActivity.timeSpent = duration ?? 0
             existingActivity.isActive = false
         } else {
-            // Create new activity
+            // Create new activity with exact startOfDay time for consistent comparison
             let activity = PersistentActivity(
-                name: name,
-                startTime: date,
+                name: trimmedName,
+                startTime: startOfDay, // Use startOfDay for consistent comparison
                 isActive: false,
-                timeSpent: duration
+                timeSpent: duration ?? 0
             )
+            
+            if isDebugMode {
+                print("Creating new activity: \(activity.name) on \(activity.startTime)")
+            }
+            
             context.insert(activity)
             activities.append(activity)
         }
         
+        // Make sure to save after each operation
         saveContext()
-        objectWillChange.send()
+        DispatchQueue.main.async {
+            self.objectWillChange.send()
+        }
     }
     
     func startTracking(_ activity: PersistentActivity) {
@@ -152,58 +197,66 @@ class ActivityStore: ObservableObject {
     func deleteActivity(_ activity: PersistentActivity) {
         guard let context = modelContext else { return }
         
+        if isDebugMode {
+            print("Deleting activity: \(activity.name) on \(activity.startTime)")
+        }
+        
         context.delete(activity)
-        if let index = activities.firstIndex(where: { $0.startTime == activity.startTime }) {
+        if let index = activities.firstIndex(where: { $0.id == activity.id }) {
             activities.remove(at: index)
         }
         saveContext()
     }
     
-func getWeeklyStats(for activity: PersistentActivity, numberOfWeeks: Int = 4) -> [WeeklyStats] {
-    var calendar = Calendar.current
-    calendar.firstWeekday = 1  // 1 = Sunday
-    let today = Date()
-    
-    var weekStarts: [Date] = []
-    for weekIndex in 0..<numberOfWeeks {
-        // Find the most recent Sunday
-        let todayWeekday = calendar.component(.weekday, from: today)
-        let daysToSubtract = todayWeekday - 1
+    func getWeeklyStats(for activity: PersistentActivity, numberOfWeeks: Int = 4) -> [WeeklyStats] {
+        var calendar = Calendar.current
+        calendar.firstWeekday = 1  // 1 = Sunday
+        let today = Date()
         
-        // Calculate the start of the current week (Sunday)
-        if let currentWeekStart = calendar.date(byAdding: .day, value: -daysToSubtract, to: calendar.startOfDay(for: today)),
-           let weekStart = calendar.date(byAdding: .day, value: -(weekIndex * 7), to: currentWeekStart) {
-            weekStarts.insert(weekStart, at: 0)
+        var weekStarts: [Date] = []
+        for weekIndex in 0..<numberOfWeeks {
+            // Find the most recent Sunday
+            let todayWeekday = calendar.component(.weekday, from: today)
+            let daysToSubtract = todayWeekday - 1
+            
+            // Calculate the start of the current week (Sunday)
+            if let currentWeekStart = calendar.date(byAdding: .day, value: -daysToSubtract, to: calendar.startOfDay(for: today)),
+               let weekStart = calendar.date(byAdding: .day, value: -(weekIndex * 7), to: currentWeekStart) {
+                weekStarts.insert(weekStart, at: 0)
+            }
+        }
+        
+        return weekStarts.map { weekStart in
+            let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart)!
+            
+            let weeklyTime = activities
+                .filter { $0.name == activity.name }
+                .filter { activity in
+                    let activityDate = activity.startTime
+                    return activityDate >= weekStart && activityDate < weekEnd
+                }
+                .reduce(0.0) { sum, activity in
+                    sum + activity.timeSpent
+                }
+            
+            return WeeklyStats(
+                weekStart: weekStart,
+                hours: weeklyTime / 3600.0,
+                activity: activity.toActivity()
+            )
         }
     }
     
-    return weekStarts.map { weekStart in
-        let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart)!
-        
-        let weeklyTime = activities
-            .filter { $0.name == activity.name }
-            .filter { activity in
-                let activityDate = activity.startTime
-                return activityDate >= weekStart && activityDate < weekEnd
-            }
-            .reduce(0.0) { sum, activity in
-                sum + activity.timeSpent
-            }
-        
-        return WeeklyStats(
-            weekStart: weekStart,
-            hours: weeklyTime / 3600.0,
-            activity: activity.toActivity()
-        )
-    }
-}
     func saveContext() {
         guard let context = modelContext else { return }
         
         do {
             try context.save()
+            if isDebugMode {
+                print("Context saved successfully")
+            }
         } catch {
             print("Failed to save context: \(error)")
         }
     }
-} 
+}
