@@ -31,31 +31,12 @@ class ActivityStore: ObservableObject {
         // Get all unique activity names
         let uniqueNames = Set(activities.map { $0.name })
         
-        // For each unique name, get or create today's activity
+        // For each unique name, get today's activity
         let todayActivities = uniqueNames.compactMap { name -> PersistentActivity? in
             // Try to find an existing activity for today
-            if let existing = activities.first(where: { activity in
+            activities.first(where: { activity in
                 activity.name == name && calendar.isDate(activity.startTime, inSameDayAs: today)
-            }) {
-                return existing
-            }
-            
-            // Create a new activity for today if it doesn't exist
-            let newActivity = PersistentActivity(
-                name: name,
-                startTime: today,
-                isActive: false,
-                timeSpent: 0
-            )
-            
-            if let context = modelContext {
-                context.insert(newActivity)
-                activities.append(newActivity)
-                saveContext() // Save immediately after insertion
-                return newActivity
-            }
-            
-            return nil
+            })
         }
         
         return todayActivities.sorted(by: { $0.name < $1.name })
@@ -214,14 +195,23 @@ class ActivityStore: ObservableObject {
         guard let context = modelContext else { return }
         
         if isDebugMode {
-            print("Deleting activity: \(activity.name) on \(activity.startTime)")
+            print("Deleting all activities with name: \(activity.name)")
         }
         
-        context.delete(activity)
-        if let index = activities.firstIndex(where: { $0.id == activity.id }) {
-            activities.remove(at: index)
+        // Find all activities with the same name
+        let activitiesToDelete = activities.filter { $0.name == activity.name }
+        
+        // Delete each activity from the context
+        for activityToDelete in activitiesToDelete {
+            context.delete(activityToDelete)
         }
+        
+        // Remove all matching activities from our array
+        activities.removeAll { $0.name == activity.name }
+        
         saveContext()
+        loadActivities()  // Reload activities after deletion
+        objectWillChange.send()  // Notify UI of changes
     }
     
     func getWeeklyStats(for activity: PersistentActivity, numberOfWeeks: Int = 4) -> [WeeklyStats] {
@@ -273,6 +263,30 @@ class ActivityStore: ObservableObject {
             }
         } catch {
             print("Failed to save context: \(error)")
+        }
+    }
+    
+    func ensureTodayActivityExists(for name: String) {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        
+        // Check if activity already exists for today
+        if !activities.contains(where: { activity in
+            activity.name == name && calendar.isDate(activity.startTime, inSameDayAs: today)
+        }) {
+            // Create a new activity for today
+            let newActivity = PersistentActivity(
+                name: name,
+                startTime: today,
+                isActive: false,
+                timeSpent: 0
+            )
+            
+            if let context = modelContext {
+                context.insert(newActivity)
+                activities.append(newActivity)
+                saveContext()
+            }
         }
     }
 }
