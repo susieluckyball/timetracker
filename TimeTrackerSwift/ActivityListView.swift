@@ -6,6 +6,7 @@ struct ActivityListView: View {
     @StateObject private var activityStore: ActivityStore
     @State private var showingAddActivity = false
     @State private var newActivityName = ""
+    @State private var mode: ActivityMode = .duration
     
     init() {
         _activityStore = StateObject(wrappedValue: ActivityStore())
@@ -28,7 +29,14 @@ struct ActivityListView: View {
             .sheet(isPresented: $showingAddActivity) {
                 NavigationStack {
                     Form {
-                        TextField("Activity Name", text: $newActivityName)
+                        Section(header: Text("New Activity")) {
+                            TextField("Activity Name", text: $newActivityName)
+                            
+                            Picker("Mode", selection: $mode) {
+                                Text("Duration").tag(ActivityMode.duration)
+                                Text("Count").tag(ActivityMode.count)
+                            }
+                        }
                     }
                     .navigationTitle("New Activity")
                     .navigationBarItems(
@@ -52,7 +60,7 @@ struct ActivityListView: View {
     }
     
     private func addActivity() {
-        activityStore.addActivity(name: newActivityName, duration: 0)
+        activityStore.addActivity(name: newActivityName, mode: mode)
     }
     
     private func deleteActivity(at offsets: IndexSet) {

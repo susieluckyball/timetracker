@@ -25,7 +25,7 @@ struct ActivityRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(activity.name)
                         .font(.headline)
-                    Text(activity.toActivity().formattedTime)
+                    Text(activity.toActivity().formattedValue)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -33,7 +33,7 @@ struct ActivityRow: View {
                 Spacer()
                 
                 Button(action: { showingLogTime = true }) {
-                    Image(systemName: "clock")
+                    Image(systemName: activity.mode == .duration ? "clock" : "plus.circle")
                         .font(.title2)
                         .foregroundColor(theme.color)
                 }
@@ -55,6 +55,7 @@ struct ActivityRow: View {
     
     let activity = PersistentActivity(
         name: "Reading", 
+        mode: .duration,
         startTime: Date(), 
         timeSpent: 3600
     )

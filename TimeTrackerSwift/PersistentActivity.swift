@@ -5,24 +5,28 @@ import SwiftData
 final class PersistentActivity {
     var id: UUID
     var name: String
+    var mode: ActivityMode
     var startTime: Date
     var timeSpent: TimeInterval
+    var count: Int
     
-    init(id: UUID = UUID(), name: String, startTime: Date = Date(), timeSpent: TimeInterval = 0) {
+    init(id: UUID = UUID(), name: String, mode: ActivityMode, startTime: Date = Date(), timeSpent: TimeInterval = 0, count: Int = 0) {
         self.id = id
         self.name = name
+        self.mode = mode
         self.startTime = startTime
         self.timeSpent = timeSpent
+        self.count = count
     }
     
     // Convert to regular Activity
     func toActivity() -> Activity {
-        return Activity(id: id, name: name, timeSpent: timeSpent, date: startTime)
+        return Activity(id: id, name: name, mode: mode, timeSpent: timeSpent, count: count, date: startTime)
     }
     
     // Create from regular Activity
     static func fromActivity(_ activity: Activity) -> PersistentActivity {
-        return PersistentActivity(id: activity.id, name: activity.name, startTime: activity.date, timeSpent: activity.timeSpent)
+        return PersistentActivity(id: activity.id, name: activity.name, mode: activity.mode, startTime: activity.date, timeSpent: activity.timeSpent, count: activity.count)
     }
 }
 
