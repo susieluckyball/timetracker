@@ -251,16 +251,16 @@ struct ContentView: View {
                     }
                     .padding(.horizontal)
                     
-                    // Activities List
+                    // Activity Cards
                     LazyVStack(spacing: 16) {
-                        ForEach(activityStore.dashboardActivities, id: \.self) { activity in
-                            ActivityCard(activity: activity, onTap: {
-                                selectedActivity = activity
-                                showingTimeInput = true
-                            }, activityStore: activityStore)
-                            .padding(.horizontal)
+                        ForEach(activityStore.dashboardActivities) { activity in
+                            ActivityRow(
+                                activity: activity,
+                                activityStore: activityStore
+                            )
                         }
                     }
+                    .padding(.horizontal)
                 }
                 .padding(.vertical)
             }
@@ -341,7 +341,6 @@ struct ContentView: View {
                                 } else {
                                     // Update existing activity
                                     activity.timeSpent = timeInSeconds
-                                    activity.isActive = false
                                     activityStore.saveContext()
                                     activityStore.objectWillChange.send()
                                 }

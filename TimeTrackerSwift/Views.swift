@@ -2,40 +2,6 @@ import SwiftUI
 import Charts
 import SwiftData
 
-struct ActivityTheme {
-    let color: Color
-    let icon: String
-    
-    static let themes: [String: ActivityTheme] = [
-        "Reading": ActivityTheme(color: .blue, icon: "book.fill"),
-        "Exercise": ActivityTheme(color: .green, icon: "figure.run"),
-        "Work": ActivityTheme(color: .orange, icon: "briefcase.fill"),
-        "Study": ActivityTheme(color: .purple, icon: "graduationcap.fill"),
-        "Gaming": ActivityTheme(color: .red, icon: "gamecontroller.fill"),
-        "Meditation": ActivityTheme(color: .teal, icon: "leaf.fill"),
-        "Music": ActivityTheme(color: .pink, icon: "music.note"),
-        "Art": ActivityTheme(color: .indigo, icon: "paintbrush.fill"),
-        "Cooking": ActivityTheme(color: .yellow, icon: "fork.knife"),
-        "Sleep": ActivityTheme(color: .gray, icon: "moon.fill"),
-        "Podcast": ActivityTheme(color: .purple, icon: "headphones"),
-        "Gym": ActivityTheme(color: .red, icon: "dumbbell.fill")
-    ]
-    
-    static func getTheme(for activityName: String) -> ActivityTheme {
-        // Default theme for activities not in the predefined list
-        let defaultTheme = ActivityTheme(color: .blue, icon: "star.fill")
-        
-        // Check if the activity name contains any of our known keywords
-        for (keyword, theme) in themes {
-            if activityName.lowercased().contains(keyword.lowercased()) {
-                return theme
-            }
-        }
-        
-        return defaultTheme
-    }
-}
-
 // History View
 struct HistoryView: View {
     @ObservedObject var activityStore: ActivityStore
@@ -84,8 +50,8 @@ struct ActivityDetailView: View {
     let activityStore: ActivityStore
     @State private var showingDeleteAlert = false
     
-    private var theme: ActivityTheme {
-        ActivityTheme.getTheme(for: activity.name)
+    private var theme: ActivityThemeManager {
+        ActivityThemeManager.getTheme(for: activity.name)
     }
     
     var body: some View {
@@ -158,20 +124,20 @@ struct ActivityDetailView: View {
 // Activity Card View
 struct ActivityCard: View {
     let activity: PersistentActivity
-    let onTap: () -> Void
     @ObservedObject var activityStore: ActivityStore
+    @State private var showingLogTime = false
     
-    private var theme: ActivityTheme {
-        ActivityTheme.getTheme(for: activity.name)
+    private var theme: ActivityThemeManager {
+        ActivityThemeManager.getTheme(for: activity.name)
     }
     
     var body: some View {
-        NavigationLink(destination: ActivityDetailView(
-            activity: activity,
-            weeklyData: activityStore.getWeeklyStats(for: activity),
-            activityStore: activityStore
-        )) {
-            VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 8) {
+            NavigationLink(destination: ActivityDetailView(
+                activity: activity,
+                weeklyData: activityStore.getWeeklyStats(for: activity),
+                activityStore: activityStore
+            )) {
                 HStack {
                     Image(systemName: theme.icon)
                         .font(.title2)
@@ -180,26 +146,39 @@ struct ActivityCard: View {
                         .font(.headline)
                         .foregroundColor(.primary)
                 }
+            }
+            
+            Spacer()
+            
+            HStack {
+                Button(action: { showingLogTime = true }) {
+                    HStack {
+                        Image(systemName: "plus.circle.fill")
+                            .foregroundColor(theme.color)
+                        Text("Log Time")
+                            .foregroundColor(theme.color)
+                    }
+                }
                 
                 Spacer()
                 
                 HStack {
-                    Button(action: onTap) {
-                        Image(systemName: "clock")
-                            .foregroundColor(.secondary)
-                    }
+                    Image(systemName: "clock")
+                        .foregroundColor(.secondary)
                     Text(activity.toActivity().formattedTime)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
             }
-            .padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: 120)
-            .background(theme.color.opacity(0.1))
-            .cornerRadius(12)
         }
-        .buttonStyle(PlainButtonStyle())
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: 120)
+        .background(theme.color.opacity(0.1))
+        .cornerRadius(12)
+        .sheet(isPresented: $showingLogTime) {
+            LogTimeView(activityStore: activityStore, activity: activity)
+        }
     }
 }
 

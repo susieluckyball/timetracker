@@ -48,7 +48,7 @@ class ActivityStore: ObservableObject {
         
         // Group activities by date, excluding activities with 0 duration
         let byDate = Dictionary(grouping: activities.filter { activity in
-            !calendar.isDate(activity.startTime, inSameDayAs: today) && activity.duration > 0
+            !calendar.isDate(activity.startTime, inSameDayAs: today) && activity.timeSpent > 0
         }) { activity in
             calendar.startOfDay(for: activity.startTime)
         }
@@ -147,13 +147,11 @@ class ActivityStore: ObservableObject {
             }
             
             existingActivity.timeSpent = duration ?? 0
-            existingActivity.isActive = false
         } else {
             // Create new activity with exact startOfDay time for consistent comparison
             let activity = PersistentActivity(
                 name: trimmedName,
-                startTime: startOfDay, // Use startOfDay for consistent comparison
-                isActive: false,
+                startTime: startOfDay,
                 timeSpent: duration ?? 0
             )
             
@@ -170,25 +168,6 @@ class ActivityStore: ObservableObject {
         DispatchQueue.main.async {
             self.objectWillChange.send()
         }
-    }
-    
-    func startTracking(_ activity: PersistentActivity) {
-        activity.isActive = true
-        activity.startTime = Date()
-        saveContext()
-        objectWillChange.send()
-    }
-    
-    func stopTracking(_ activity: PersistentActivity) {
-        // Calculate duration since activity started tracking
-        let duration = Date().timeIntervalSince(activity.startTime)
-        
-        // Update activity
-        activity.isActive = false
-        activity.timeSpent = duration
-        
-        saveContext()
-        objectWillChange.send()
     }
     
     func deleteActivity(_ activity: PersistentActivity) {
@@ -278,7 +257,6 @@ class ActivityStore: ObservableObject {
             let newActivity = PersistentActivity(
                 name: name,
                 startTime: today,
-                isActive: false,
                 timeSpent: 0
             )
             

@@ -6,22 +6,13 @@ final class PersistentActivity {
     var id: UUID
     var name: String
     var startTime: Date
-    var isActive: Bool
     var timeSpent: TimeInterval
     
-    init(id: UUID = UUID(), name: String, startTime: Date = Date(), isActive: Bool = false, timeSpent: TimeInterval = 0) {
+    init(id: UUID = UUID(), name: String, startTime: Date = Date(), timeSpent: TimeInterval = 0) {
         self.id = id
         self.name = name
         self.startTime = startTime
-        self.isActive = isActive
         self.timeSpent = timeSpent
-    }
-    
-    var duration: TimeInterval {
-        if isActive {
-            return Date().timeIntervalSince(startTime)
-        }
-        return timeSpent
     }
     
     // Convert to regular Activity
