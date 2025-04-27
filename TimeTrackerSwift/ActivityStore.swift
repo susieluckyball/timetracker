@@ -5,6 +5,7 @@ import SwiftData
 struct WeeklyStats {
     let weekStart: Date
     let hours: Double
+    let count: Int
     let activity: Activity
     
     var weekLabel: String {
@@ -46,9 +47,10 @@ class ActivityStore: ObservableObject {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         
-        // Group activities by date, excluding activities with 0 duration
+        // Group activities by date, excluding activities with 0 duration/count
         let byDate = Dictionary(grouping: activities.filter { activity in
-            !calendar.isDate(activity.startTime, inSameDayAs: today) && activity.duration > 0
+            !calendar.isDate(activity.startTime, inSameDayAs: today) && 
+            (activity.mode == .duration ? activity.timeSpent > 0 : activity.count > 0)
         }) { activity in
             calendar.startOfDay(for: activity.startTime)
         }
@@ -93,7 +95,7 @@ class ActivityStore: ObservableObject {
             if isDebugMode {
                 print("Loaded \(activities.count) activities")
                 for activity in activities {
-                    print("  - \(activity.name) on \(activity.startTime), timeSpent: \(activity.timeSpent)")
+                    print("  - \(activity.name) on \(activity.startTime), mode: \(activity.mode), timeSpent: \(activity.timeSpent), count: \(activity.count)")
                 }
             }
         } catch {
@@ -112,7 +114,7 @@ class ActivityStore: ObservableObject {
         UserDefaults.standard.set(date, forKey: "lastHistoricalInputDate")
     }
     
-    func addActivity(name: String, date: Date = Date(), duration: TimeInterval? = 0) {
+    func addActivity(name: String, mode: ActivityMode, date: Date = Date(), duration: TimeInterval? = 0, count: Int? = 0) {
         guard let context = modelContext else { return }
         
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -126,7 +128,7 @@ class ActivityStore: ObservableObject {
         let startOfDay = calendar.startOfDay(for: date)
         
         if isDebugMode {
-            print("Adding activity: \(trimmedName) for date \(startOfDay), duration: \(duration ?? 0)")
+            print("Adding activity: \(trimmedName) for date \(startOfDay), mode: \(mode), duration: \(duration ?? 0), count: \(count ?? 0)")
         }
         
         // First, fetch the latest activities to ensure we have the most current data
@@ -146,15 +148,22 @@ class ActivityStore: ObservableObject {
                 print("Found existing activity: \(existingActivity.name) on \(existingActivity.startTime)")
             }
             
-            existingActivity.timeSpent = duration ?? 0
-            existingActivity.isActive = false
+            existingActivity.mode = mode
+            if mode == .duration {
+                existingActivity.timeSpent = duration ?? 0
+                existingActivity.count = 0
+            } else {
+                existingActivity.timeSpent = 0
+                existingActivity.count = count ?? 0
+            }
         } else {
             // Create new activity with exact startOfDay time for consistent comparison
             let activity = PersistentActivity(
                 name: trimmedName,
-                startTime: startOfDay, // Use startOfDay for consistent comparison
-                isActive: false,
-                timeSpent: duration ?? 0
+                mode: mode,
+                startTime: startOfDay,
+                timeSpent: mode == .duration ? (duration ?? 0) : 0,
+                count: mode == .count ? (count ?? 0) : 0
             )
             
             if isDebugMode {
@@ -172,21 +181,26 @@ class ActivityStore: ObservableObject {
         }
     }
     
-    func startTracking(_ activity: PersistentActivity) {
-        activity.isActive = true
-        activity.startTime = Date()
+    func incrementCounter(for activity: PersistentActivity) {
+        guard modelContext != nil else { return }
+        
+        if isDebugMode {
+            print("Incrementing counter for activity: \(activity.name)")
+        }
+        
+        activity.count += 1
         saveContext()
         objectWillChange.send()
     }
     
-    func stopTracking(_ activity: PersistentActivity) {
-        // Calculate duration since activity started tracking
-        let duration = Date().timeIntervalSince(activity.startTime)
+    func resetCounter(for activity: PersistentActivity) {
+        guard modelContext != nil else { return }
         
-        // Update activity
-        activity.isActive = false
-        activity.timeSpent = duration
+        if isDebugMode {
+            print("Resetting counter for activity: \(activity.name)")
+        }
         
+        activity.count = 0
         saveContext()
         objectWillChange.send()
     }
@@ -235,19 +249,25 @@ class ActivityStore: ObservableObject {
         return weekStarts.map { weekStart in
             let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart)!
             
-            let weeklyTime = activities
+            let weeklyActivities = activities
                 .filter { $0.name == activity.name }
                 .filter { activity in
                     let activityDate = activity.startTime
                     return activityDate >= weekStart && activityDate < weekEnd
                 }
-                .reduce(0.0) { sum, activity in
-                    sum + activity.timeSpent
-                }
+            
+            let weeklyTime = weeklyActivities.reduce(0.0) { sum, activity in
+                sum + activity.timeSpent
+            }
+            
+            let weeklyCount = weeklyActivities.reduce(0) { sum, activity in
+                sum + activity.count
+            }
             
             return WeeklyStats(
                 weekStart: weekStart,
                 hours: weeklyTime / 3600.0,
+                count: weeklyCount,
                 activity: activity.toActivity()
             )
         }
@@ -266,7 +286,7 @@ class ActivityStore: ObservableObject {
         }
     }
     
-    func ensureTodayActivityExists(for name: String) {
+    func ensureTodayActivityExists(for name: String, mode: ActivityMode) {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         
@@ -277,9 +297,10 @@ class ActivityStore: ObservableObject {
             // Create a new activity for today
             let newActivity = PersistentActivity(
                 name: name,
+                mode: mode,
                 startTime: today,
-                isActive: false,
-                timeSpent: 0
+                timeSpent: 0,
+                count: 0
             )
             
             if let context = modelContext {

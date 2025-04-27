@@ -4,16 +4,18 @@ import SwiftData
 struct HistoricalInputView: View {
     @Binding var isPresented: Bool
     @ObservedObject var activityStore: ActivityStore
-    let onSave: (String, Date, TimeInterval) -> Void
+    let onSave: (String, Date, TimeInterval, ActivityMode, Int) -> Void
     
     @State private var selectedActivity: String = ""
     @State private var selectedDate: Date
     @State private var hours: Int = 0
     @State private var minutes: Int = 0
+    @State private var count: Int = 0
     @State private var isNewActivity: Bool = false
     @State private var newActivityName: String = ""
+    @State private var mode: ActivityMode = .duration
     
-    init(isPresented: Binding<Bool>, activityStore: ActivityStore, onSave: @escaping (String, Date, TimeInterval) -> Void) {
+    init(isPresented: Binding<Bool>, activityStore: ActivityStore, onSave: @escaping (String, Date, TimeInterval, ActivityMode, Int) -> Void) {
         self._isPresented = isPresented
         self.activityStore = activityStore
         self.onSave = onSave
@@ -25,6 +27,19 @@ struct HistoricalInputView: View {
     private var existingActivities: [String] {
         // Get unique activity names
         Array(Set(activityStore.activities.map { $0.name })).sorted()
+    }
+    
+    private func updateModeForSelectedActivity() {
+        if !isNewActivity && !selectedActivity.isEmpty {
+            // Find the most recent activity with this name to get its mode
+            if let activity = activityStore.activities
+                .filter({ $0.name == selectedActivity })
+                .sorted(by: { $0.startTime > $1.startTime })
+                .first {
+                mode = activity.mode
+                print("Updated mode to: \(mode) for activity: \(selectedActivity)")
+            }
+        }
     }
     
     var body: some View {
@@ -43,11 +58,24 @@ struct HistoricalInputView: View {
                             .onChange(of: newActivityName) { oldValue, newValue in
                                 newActivityName = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
                             }
+                        
+                        Picker("Mode", selection: $mode) {
+                            Text("Duration").tag(ActivityMode.duration)
+                            Text("Count").tag(ActivityMode.count)
+                        }
                     } else if !existingActivities.isEmpty {
                         Picker("Activity", selection: $selectedActivity) {
                             ForEach(existingActivities, id: \.self) { activity in
                                 Text(activity).tag(activity)
                             }
+                        }
+                        .onChange(of: selectedActivity) { oldValue, newValue in
+                            updateModeForSelectedActivity()
+                        }
+                        
+                        if !selectedActivity.isEmpty {
+                            Text("Mode: \(mode == .duration ? "Duration" : "Count")")
+                                .foregroundColor(.secondary)
                         }
                     } else {
                         Text("No existing activities")
@@ -63,25 +91,40 @@ struct HistoricalInputView: View {
                     )
                 }
                 
-                Section(header: Text("Duration")) {
-                    HStack {
-                        Picker("Hours", selection: $hours) {
-                            ForEach(0..<24) { hour in
-                                Text("\(hour)h").tag(hour)
+                if mode == .duration {
+                    Section(header: Text("Duration")) {
+                        HStack {
+                            Picker("Hours", selection: $hours) {
+                                ForEach(0..<24) { hour in
+                                    Text("\(hour)h").tag(hour)
+                                }
                             }
-                        }
-                        .pickerStyle(.wheel)
-                        .frame(width: 100)
-                        
-                        Picker("Minutes", selection: $minutes) {
-                            ForEach(0..<12) { minute in
-                                Text("\(minute * 5)m").tag(minute * 5)
+                            .pickerStyle(.wheel)
+                            .frame(width: 100)
+                            
+                            Picker("Minutes", selection: $minutes) {
+                                ForEach(0..<12) { minute in
+                                    Text("\(minute * 5)m").tag(minute * 5)
+                                }
                             }
+                            .pickerStyle(.wheel)
+                            .frame(width: 100)
                         }
-                        .pickerStyle(.wheel)
-                        .frame(width: 100)
+                        .padding(.vertical)
                     }
-                    .padding(.vertical)
+                } else {
+                    Section(header: Text("Count")) {
+                        HStack {
+                            Picker("Count", selection: $count) {
+                                ForEach(0..<100) { count in
+                                    Text("\(count)").tag(count)
+                                }
+                            }
+                            .pickerStyle(.wheel)
+                            .frame(width: 100)
+                        }
+                        .padding(.vertical)
+                    }
                 }
                 
                 #if DEBUG
@@ -94,7 +137,12 @@ struct HistoricalInputView: View {
                         Text("Selected activity: \"\(selectedActivity)\"")
                     }
                     Text("Date: \(selectedDate, format: .dateTime)")
-                    Text("Duration: \(hours)h \(minutes)m")
+                    Text("Mode: \(mode == .duration ? "Duration" : "Count")")
+                    if mode == .duration {
+                        Text("Duration: \(hours)h \(minutes)m")
+                    } else {
+                        Text("Count: \(count)")
+                    }
                 }
                 #endif
             }
@@ -115,9 +163,11 @@ struct HistoricalInputView: View {
                     let startOfDay = calendar.startOfDay(for: selectedDate)
                     let duration = TimeInterval(hours * 3600 + minutes * 60)
                     
+                    print("Saving activity: \(activityName), mode: \(mode), count: \(count), duration: \(duration)")
+                    
                     // Only save if we have valid data
-                    if !activityName.isEmpty && duration > 0 {
-                        onSave(activityName, startOfDay, duration)
+                    if !activityName.isEmpty && (mode == .count ? count > 0 : duration > 0) {
+                        onSave(activityName, startOfDay, duration, mode, count)
                         
                         // Update the last historical input date
                         activityStore.updateLastHistoricalInputDate(startOfDay)
@@ -126,19 +176,21 @@ struct HistoricalInputView: View {
                         newActivityName = ""
                         hours = 0
                         minutes = 0
+                        count = 0
                         
                         isPresented = false
                     }
                 }
                 .disabled((isNewActivity && newActivityName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) || 
                          (!isNewActivity && (selectedActivity.isEmpty || existingActivities.isEmpty)) ||
-                         (hours == 0 && minutes == 0))
+                         (mode == .duration ? (hours == 0 && minutes == 0) : count == 0))
             )
         }
         .onAppear {
             // Reset state when view appears
             if let firstActivity = existingActivities.first, !isNewActivity {
                 selectedActivity = firstActivity
+                updateModeForSelectedActivity()
             }
         }
     }
@@ -251,16 +303,16 @@ struct ContentView: View {
                     }
                     .padding(.horizontal)
                     
-                    // Activities List
+                    // Activity Cards
                     LazyVStack(spacing: 16) {
-                        ForEach(activityStore.dashboardActivities, id: \.self) { activity in
-                            ActivityCard(activity: activity, onTap: {
-                                selectedActivity = activity
-                                showingTimeInput = true
-                            }, activityStore: activityStore)
-                            .padding(.horizontal)
+                        ForEach(activityStore.dashboardActivities) { activity in
+                            ActivityRow(
+                                activity: activity,
+                                activityStore: activityStore
+                            )
                         }
                     }
+                    .padding(.horizontal)
                 }
                 .padding(.vertical)
             }
@@ -308,24 +360,31 @@ struct ContentView: View {
                 }
             }
             .sheet(isPresented: $showingAddActivity) {
-                AddActivitySheet(isPresented: $showingAddActivity) { name in
-                    activityStore.addActivity(name: name)
-                    activityStore.ensureTodayActivityExists(for: name)
+                AddActivitySheet(isPresented: $showingAddActivity) { name, mode in
+                    activityStore.addActivity(name: name, mode: mode)
+                    activityStore.ensureTodayActivityExists(for: name, mode: mode)
                 }
             }
             .sheet(isPresented: $showingHistoricalInput) {
                 HistoricalInputView(
                     isPresented: $showingHistoricalInput,
                     activityStore: activityStore,
-                    onSave: { name, date, duration in
-                        activityStore.addActivity(name: name, date: date, duration: duration)
+                    onSave: { name, date, duration, mode, count in
+                        print("ContentView received save: \(name), mode: \(mode), duration: \(duration), count: \(count)")
+                        activityStore.addActivity(
+                            name: name,
+                            mode: mode,
+                            date: date,
+                            duration: mode == .duration ? duration : 0,
+                            count: mode == .count ? count : 0
+                        )
                     }
                 )
             }
             .sheet(isPresented: $showingTimeInput) {
                 NavigationView {
                     TimeInputView(
-                        activity: selectedActivity?.toActivity() ?? Activity(name: "", timeSpent: 0, date: Date()),
+                        activity: selectedActivity?.toActivity() ?? Activity(name: "", mode: .duration, timeSpent: 0, date: Date()),
                         isPresented: $showingTimeInput,
                         onSave: { minutes in
                             if let activity = selectedActivity {
@@ -337,11 +396,10 @@ struct ContentView: View {
                                     Calendar.current.isDate($0.startTime, inSameDayAs: activity.startTime) 
                                 }) {
                                     // It's a temporary activity, create a new persistent one
-                                    activityStore.addActivity(name: activity.name, duration: timeInSeconds)
+                                    activityStore.addActivity(name: activity.name, mode: activity.mode, duration: timeInSeconds)
                                 } else {
                                     // Update existing activity
                                     activity.timeSpent = timeInSeconds
-                                    activity.isActive = false
                                     activityStore.saveContext()
                                     activityStore.objectWillChange.send()
                                 }

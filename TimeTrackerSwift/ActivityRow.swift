@@ -4,64 +4,75 @@ import SwiftData
 struct ActivityRow: View {
     let activity: PersistentActivity
     @ObservedObject var activityStore: ActivityStore
-    @State private var isTracking = false
+    @State private var showingLogTime = false
     
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading) {
-                Text(activity.name)
-                    .font(.headline)
-                if activity.isActive {
-                    Text("Started: \(activity.startTime.formatted(date: .omitted, time: .shortened))")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-            
-            Spacer()
-            
-            Button(action: toggleTracking) {
-                Image(systemName: isTracking ? "stop.circle.fill" : "play.circle.fill")
-                    .font(.title)
-                    .foregroundColor(isTracking ? .red : .green)
-            }
-        }
-        .onAppear {
-            isTracking = activity.isActive
-        }
+    private var theme: ActivityThemeManager {
+        ActivityThemeManager.getTheme(for: activity.name)
     }
     
-    private func toggleTracking() {
-        if isTracking {
-            activityStore.stopTracking(activity)
-        } else {
-            activityStore.startTracking(activity)
+    var body: some View {
+        NavigationLink(destination: ActivityDetailView(
+            activity: activity,
+            weeklyData: activityStore.getWeeklyStats(for: activity),
+            activityStore: activityStore
+        )) {
+            HStack {
+                Image(systemName: theme.icon)
+                    .font(.title2)
+                    .foregroundColor(theme.color)
+                    .frame(width: 40)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(activity.name)
+                        .font(.headline)
+                    Button(action: { showingLogTime = true }) {
+                        Text(activity.toActivity().formattedValue)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
+                Spacer()
+                
+                Button(action: {
+                    let currentActivity = activity.toActivity()
+                    switch currentActivity.mode {
+                    case .duration:
+                        let newDuration = currentActivity.timeSpent + (15 * 60) // Add 15 minutes to existing duration
+                        activityStore.addActivity(name: activity.name, mode: .duration, duration: newDuration)
+                    case .count:
+                        activityStore.incrementCounter(for: activity)
+                    }
+                }) {
+                    Image(systemName: activity.mode == .duration ? "clock" : "plus.circle")
+                        .font(.title2)
+                        .foregroundColor(theme.color)
+                }
+            }
+            .padding()
+            .background(theme.color.opacity(0.1))
+            .cornerRadius(12)
         }
-        isTracking.toggle()
+        .buttonStyle(PlainButtonStyle())
+        .sheet(isPresented: $showingLogTime) {
+            LogTimeView(activityStore: activityStore, activity: activity)
+        }
     }
 }
 
 #Preview {
-    Text("ActivityRow Preview")
-        .padding()
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: PersistentActivity.self, configurations: config)
+    
+    let activity = PersistentActivity(
+        name: "Reading", 
+        mode: .duration,
+        startTime: Date(), 
+        timeSpent: 3600
+    )
+    
+    let store = ActivityStore()
+    store.setModelContext(container.mainContext)
+    
+    return ActivityRow(activity: activity, activityStore: store)
 }
-
-// #Preview {
-//     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-//     let container = try! ModelContainer(for: PersistentActivity.self, configurations: config)
-    
-//     let activity = PersistentActivity(
-//         name: "Sample Activity", 
-//         startTime: Date(), 
-//         isActive: false, 
-//         timeSpent: 0
-//     )
-    
-//     let store = ActivityStore()
-//     store.setModelContext(container.mainContext)
-    
-//     Group {
-//         ActivityRow(activity: activity, activityStore: store)
-//             .modelContainer(container)
-//     }
-// }

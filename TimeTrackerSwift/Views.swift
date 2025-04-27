@@ -2,40 +2,6 @@ import SwiftUI
 import Charts
 import SwiftData
 
-struct ActivityTheme {
-    let color: Color
-    let icon: String
-    
-    static let themes: [String: ActivityTheme] = [
-        "Reading": ActivityTheme(color: .blue, icon: "book.fill"),
-        "Exercise": ActivityTheme(color: .green, icon: "figure.run"),
-        "Work": ActivityTheme(color: .orange, icon: "briefcase.fill"),
-        "Study": ActivityTheme(color: .purple, icon: "graduationcap.fill"),
-        "Gaming": ActivityTheme(color: .red, icon: "gamecontroller.fill"),
-        "Meditation": ActivityTheme(color: .teal, icon: "leaf.fill"),
-        "Music": ActivityTheme(color: .pink, icon: "music.note"),
-        "Art": ActivityTheme(color: .indigo, icon: "paintbrush.fill"),
-        "Cooking": ActivityTheme(color: .yellow, icon: "fork.knife"),
-        "Sleep": ActivityTheme(color: .gray, icon: "moon.fill"),
-        "Podcast": ActivityTheme(color: .purple, icon: "headphones"),
-        "Gym": ActivityTheme(color: .red, icon: "dumbbell.fill")
-    ]
-    
-    static func getTheme(for activityName: String) -> ActivityTheme {
-        // Default theme for activities not in the predefined list
-        let defaultTheme = ActivityTheme(color: .blue, icon: "star.fill")
-        
-        // Check if the activity name contains any of our known keywords
-        for (keyword, theme) in themes {
-            if activityName.lowercased().contains(keyword.lowercased()) {
-                return theme
-            }
-        }
-        
-        return defaultTheme
-    }
-}
-
 // History View
 struct HistoryView: View {
     @ObservedObject var activityStore: ActivityStore
@@ -59,13 +25,19 @@ struct HistoryView: View {
                             HStack {
                                 Text(activity.name)
                                 Spacer()
-                                Text(activity.toActivity().formattedTime)
-                                    .foregroundColor(.secondary)
+                                if activity.mode == .duration {
+                                    Text(activity.toActivity().formattedValue)
+                                        .foregroundColor(.secondary)
+                                } else {
+                                    Text("\(activity.count) counts")
+                                        .foregroundColor(.secondary)
+                                }
                             }
                         }
                         .onDelete { indexSet in
                             for index in indexSet {
-                                activityStore.deleteActivity(activities[index])
+                                let activityToDelete = activities[index]
+                                activityStore.deleteActivity(activityToDelete)
                             }
                         }
                     }
@@ -84,8 +56,8 @@ struct ActivityDetailView: View {
     let activityStore: ActivityStore
     @State private var showingDeleteAlert = false
     
-    private var theme: ActivityTheme {
-        ActivityTheme.getTheme(for: activity.name)
+    private var theme: ActivityThemeManager {
+        ActivityThemeManager.getTheme(for: activity.name)
     }
     
     var body: some View {
@@ -101,7 +73,9 @@ struct ActivityDetailView: View {
                             .fontWeight(.bold)
                     }
                     
-                    Text("Total time: \(activity.toActivity().formattedTime)")
+                    Text(activity.mode == .duration ? 
+                         "Total time: \(activity.toActivity().formattedValue)" :
+                         "Total count: \(activity.toActivity().formattedValue)")
                         .foregroundColor(.secondary)
                 }
                 .padding(.vertical, 8)
@@ -111,7 +85,8 @@ struct ActivityDetailView: View {
                 Chart(weeklyData, id: \.weekStart) { week in
                     BarMark(
                         x: .value("Week", week.weekLabel),
-                        y: .value("Hours", week.hours)
+                        y: .value(activity.mode == .duration ? "Hours" : "Count", 
+                                activity.mode == .duration ? week.hours : Double(week.count))
                     )
                     .foregroundStyle(theme.color.gradient)
                 }
@@ -124,33 +99,36 @@ struct ActivityDetailView: View {
                     HStack {
                         Text(week.weekLabel)
                         Spacer()
-                        Text(String(format: "%.1f hours", week.hours))
+                        Text(activity.mode == .duration ? 
+                             String(format: "%.1f hours", week.hours) :
+                             "\(week.count) counts")
                             .foregroundColor(.secondary)
                     }
                 }
             }
             
             Section {
-                Button(role: .destructive, action: {
-                    showingDeleteAlert = true
-                }) {
+                Button(action: { showingDeleteAlert = true }) {
                     HStack {
                         Spacer()
                         Text("Delete Activity")
+                            .foregroundColor(.red)
                         Spacer()
                     }
                 }
             }
         }
         .navigationTitle("Activity Details")
-        .alert("Delete Activity", isPresented: $showingDeleteAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Delete Everything", role: .destructive) {
-                activityStore.deleteActivity(activity)
-                presentationMode.wrappedValue.dismiss()
-            }
-        } message: {
-            Text("This will delete '\(activity.name)' and all of its history. This action cannot be undone.")
+        .alert(isPresented: $showingDeleteAlert) {
+            Alert(
+                title: Text("Delete Activity"),
+                message: Text("Are you sure you want to delete this activity? This action cannot be undone."),
+                primaryButton: .destructive(Text("Delete")) {
+                    activityStore.deleteActivity(activity)
+                    presentationMode.wrappedValue.dismiss()
+                },
+                secondaryButton: .cancel()
+            )
         }
     }
 }
@@ -158,20 +136,20 @@ struct ActivityDetailView: View {
 // Activity Card View
 struct ActivityCard: View {
     let activity: PersistentActivity
-    let onTap: () -> Void
     @ObservedObject var activityStore: ActivityStore
+    @State private var showingLogTime = false
     
-    private var theme: ActivityTheme {
-        ActivityTheme.getTheme(for: activity.name)
+    private var theme: ActivityThemeManager {
+        ActivityThemeManager.getTheme(for: activity.name)
     }
     
     var body: some View {
-        NavigationLink(destination: ActivityDetailView(
-            activity: activity,
-            weeklyData: activityStore.getWeeklyStats(for: activity),
-            activityStore: activityStore
-        )) {
-            VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 8) {
+            NavigationLink(destination: ActivityDetailView(
+                activity: activity,
+                weeklyData: activityStore.getWeeklyStats(for: activity),
+                activityStore: activityStore
+            )) {
                 HStack {
                     Image(systemName: theme.icon)
                         .font(.title2)
@@ -180,40 +158,59 @@ struct ActivityCard: View {
                         .font(.headline)
                         .foregroundColor(.primary)
                 }
+            }
+            
+            Spacer()
+            
+            HStack {
+                Button(action: { showingLogTime = true }) {
+                    HStack {
+                        Image(systemName: activity.mode == .duration ? "clock.fill" : "plus.circle.fill")
+                            .foregroundColor(theme.color)
+                        Text(activity.mode == .duration ? "Log Time" : "Add Count")
+                            .foregroundColor(theme.color)
+                    }
+                }
                 
                 Spacer()
                 
                 HStack {
-                    Button(action: onTap) {
-                        Image(systemName: "clock")
-                            .foregroundColor(.secondary)
-                    }
-                    Text(activity.toActivity().formattedTime)
+                    Image(systemName: activity.mode == .duration ? "clock" : "number.circle")
+                        .foregroundColor(.secondary)
+                    Text(activity.toActivity().formattedValue)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
             }
-            .padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: 120)
-            .background(theme.color.opacity(0.1))
-            .cornerRadius(12)
         }
-        .buttonStyle(PlainButtonStyle())
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: 120)
+        .background(theme.color.opacity(0.1))
+        .cornerRadius(12)
+        .sheet(isPresented: $showingLogTime) {
+            LogTimeView(activityStore: activityStore, activity: activity)
+        }
     }
 }
 
 // Add Activity Sheet
 struct AddActivitySheet: View {
     @Binding var isPresented: Bool
-    let onAdd: (String) -> Void
+    let onAdd: (String, ActivityMode) -> Void
     @State private var activityName = ""
+    @State private var mode: ActivityMode = .duration
     
     var body: some View {
         NavigationView {
             Form {
                 Section(header: Text("New Activity")) {
                     TextField("Activity Name", text: $activityName)
+                    
+                    Picker("Mode", selection: $mode) {
+                        Text("Duration").tag(ActivityMode.duration)
+                        Text("Count").tag(ActivityMode.count)
+                    }
                 }
             }
             .navigationTitle("Add Activity")
@@ -223,7 +220,7 @@ struct AddActivitySheet: View {
                 },
                 trailing: Button("Add") {
                     if !activityName.isEmpty {
-                        onAdd(activityName)
+                        onAdd(activityName, mode)
                         isPresented = false
                     }
                 }
