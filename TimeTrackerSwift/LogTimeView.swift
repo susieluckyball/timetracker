@@ -6,10 +6,12 @@ struct LogTimeView: View {
     @ObservedObject var activityStore: ActivityStore
     let activity: PersistentActivity
     
-    @State private var hours: Int = 0
-    @State private var minutes: Int = 0
-    @State private var count: Int = 0
+    @State private var selectedDuration: Int = 0 // in minutes
+    @State private var selectedCount: Int = 0
     @State private var selectedDate: Date = Date()
+    
+    private let durationOptions = Array(stride(from: 0, through: 720, by: 5)) // 0 to 12 hours in 5-min increments
+    private let countOptions = Array(0...100) // 0 to 100 counts
     
     var body: some View {
         NavigationView {
@@ -18,65 +20,62 @@ struct LogTimeView: View {
                     DatePicker("Date", selection: $selectedDate, displayedComponents: .date)
                     
                     if activity.mode == .duration {
-                        HStack {
-                            Text("Hours")
-                            Spacer()
-                            TextField("0", value: $hours, formatter: NumberFormatter())
-                                .keyboardType(.numberPad)
-                                .multilineTextAlignment(.trailing)
-                                .frame(width: 60)
+                        Picker("Duration", selection: $selectedDuration) {
+                            ForEach(durationOptions, id: \.self) { minutes in
+                                Text(formatDuration(minutes))
+                            }
                         }
-                        
-                        HStack {
-                            Text("Minutes")
-                            Spacer()
-                            TextField("0", value: $minutes, formatter: NumberFormatter())
-                                .keyboardType(.numberPad)
-                                .multilineTextAlignment(.trailing)
-                                .frame(width: 60)
-                        }
+                        .pickerStyle(.wheel)
                     } else {
-                        HStack {
-                            Text("Count")
-                            Spacer()
-                            TextField("0", value: $count, formatter: NumberFormatter())
-                                .keyboardType(.numberPad)
-                                .multilineTextAlignment(.trailing)
-                                .frame(width: 60)
+                        Picker("Count", selection: $selectedCount) {
+                            ForEach(countOptions, id: \.self) { count in
+                                Text("\(count)")
+                            }
                         }
+                        .pickerStyle(.wheel)
                     }
                 }
             }
-            .navigationTitle(activity.mode == .duration ? "Log Time" : "Log Count")
+            .navigationTitle("Log \(activity.mode == .duration ? "Time" : "Count")")
             .navigationBarItems(
                 leading: Button("Cancel") {
                     dismiss()
                 },
                 trailing: Button("Save") {
-                    saveValue()
+                    save()
+                    dismiss()
                 }
             )
         }
     }
     
-    private func saveValue() {
+    private func formatDuration(_ minutes: Int) -> String {
+        let hours = minutes / 60
+        let remainingMinutes = minutes % 60
+        if hours > 0 {
+            return "\(hours)h \(remainingMinutes)m"
+        } else {
+            return "\(remainingMinutes)m"
+        }
+    }
+    
+    private func save() {
         if activity.mode == .duration {
-            let totalSeconds = TimeInterval(hours * 3600 + minutes * 60)
+            let durationInSeconds = TimeInterval(selectedDuration * 60)
             activityStore.addActivity(
                 name: activity.name,
-                mode: activity.mode,
+                mode: .duration,
                 date: selectedDate,
-                duration: totalSeconds
+                duration: durationInSeconds
             )
         } else {
             activityStore.addActivity(
                 name: activity.name,
-                mode: activity.mode,
+                mode: .count,
                 date: selectedDate,
-                count: count
+                count: selectedCount
             )
         }
-        dismiss()
     }
 }
 
@@ -85,7 +84,7 @@ struct LogTimeView: View {
     let container = try! ModelContainer(for: PersistentActivity.self, configurations: config)
     
     let activity = PersistentActivity(
-        name: "Sample Activity",
+        name: "Reading",
         mode: .duration,
         startTime: Date(),
         timeSpent: 3600

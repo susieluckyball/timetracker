@@ -25,14 +25,25 @@ struct ActivityRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(activity.name)
                         .font(.headline)
-                    Text(activity.toActivity().formattedValue)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    Button(action: { showingLogTime = true }) {
+                        Text(activity.toActivity().formattedValue)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
                 
                 Spacer()
                 
-                Button(action: { showingLogTime = true }) {
+                Button(action: {
+                    let currentActivity = activity.toActivity()
+                    switch currentActivity.mode {
+                    case .duration:
+                        let newDuration = currentActivity.timeSpent + (15 * 60) // Add 15 minutes to existing duration
+                        activityStore.addActivity(name: activity.name, mode: .duration, duration: newDuration)
+                    case .count:
+                        activityStore.incrementCounter(for: activity)
+                    }
+                }) {
                     Image(systemName: activity.mode == .duration ? "clock" : "plus.circle")
                         .font(.title2)
                         .foregroundColor(theme.color)

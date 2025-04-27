@@ -182,7 +182,7 @@ class ActivityStore: ObservableObject {
     }
     
     func incrementCounter(for activity: PersistentActivity) {
-        guard let context = modelContext else { return }
+        guard modelContext != nil else { return }
         
         if isDebugMode {
             print("Incrementing counter for activity: \(activity.name)")
@@ -194,7 +194,7 @@ class ActivityStore: ObservableObject {
     }
     
     func resetCounter(for activity: PersistentActivity) {
-        guard let context = modelContext else { return }
+        guard modelContext != nil else { return }
         
         if isDebugMode {
             print("Resetting counter for activity: \(activity.name)")
