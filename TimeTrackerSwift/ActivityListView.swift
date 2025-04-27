@@ -14,7 +14,7 @@ struct ActivityListView: View {
     var body: some View {
         NavigationStack {
             List {
-                ForEach(activityStore.activities, id: \.startTime) { activity in
+                ForEach(activityStore.activities, id: \.id) { activity in
                     ActivityRow(activity: activity, activityStore: activityStore)
                 }
                 .onDelete(perform: deleteActivity)

@@ -310,6 +310,7 @@ struct ContentView: View {
             .sheet(isPresented: $showingAddActivity) {
                 AddActivitySheet(isPresented: $showingAddActivity) { name in
                     activityStore.addActivity(name: name)
+                    activityStore.ensureTodayActivityExists(for: name)
                 }
             }
             .sheet(isPresented: $showingHistoricalInput) {

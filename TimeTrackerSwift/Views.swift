@@ -63,6 +63,11 @@ struct HistoryView: View {
                                     .foregroundColor(.secondary)
                             }
                         }
+                        .onDelete { indexSet in
+                            for index in indexSet {
+                                activityStore.deleteActivity(activities[index])
+                            }
+                        }
                     }
                 }
             }
