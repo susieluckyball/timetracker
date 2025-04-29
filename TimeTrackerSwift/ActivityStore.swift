@@ -98,10 +98,53 @@ class ActivityStore: ObservableObject {
                     print("  - \(activity.name) on \(activity.startTime), mode: \(activity.mode), timeSpent: \(activity.timeSpent), count: \(activity.count)")
                 }
             }
+            
+            // Ensure all activities exist for today
+            ensureAllActivitiesExistForToday()
         } catch {
             print("Failed to load activities: \(error)")
             activities = []
         }
+    }
+    
+    private func ensureAllActivitiesExistForToday() {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        
+        // Get all unique activity names
+        let uniqueNames = Set(activities.map { $0.name })
+        
+        // For each unique name, ensure there's an activity for today
+        for name in uniqueNames {
+            // Find the most recent activity with this name to get its mode
+            if let lastActivity = activities
+                .filter({ $0.name == name })
+                .sorted(by: { $0.startTime > $1.startTime })
+                .first {
+                
+                // Check if activity already exists for today
+                if !activities.contains(where: { activity in
+                    activity.name == name && calendar.isDate(activity.startTime, inSameDayAs: today)
+                }) {
+                    // Create a new activity for today
+                    let newActivity = PersistentActivity(
+                        name: name,
+                        mode: lastActivity.mode,
+                        startTime: today,
+                        timeSpent: 0,
+                        count: 0
+                    )
+                    
+                    if let context = modelContext {
+                        context.insert(newActivity)
+                        activities.append(newActivity)
+                    }
+                }
+            }
+        }
+        
+        // Save any new activities
+        saveContext()
     }
     
     func updateReminderTime(_ newTime: Date) {
