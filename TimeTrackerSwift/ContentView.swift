@@ -211,7 +211,6 @@ struct ContentView: View {
     @State private var showingHistoricalInput = false
     @State private var selectedActivity: PersistentActivity?
     @State private var showingReminderSettings = false
-    @State private var currentDate = Date()
     
     init() {
         // Initialize ActivityStore with a nil context, will be updated in onAppear
@@ -230,7 +229,7 @@ struct ContentView: View {
                 VStack(spacing: 24) {
                     // Today's Date Header
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(dateFormatter.string(from: currentDate))
+                        Text(dateFormatter.string(from: activityStore.currentDate))
                             .font(.system(size: 28, weight: .bold, design: .rounded))
                             .foregroundStyle(
                                 LinearGradient(
@@ -422,11 +421,6 @@ struct ContentView: View {
         }
         .onAppear {
             activityStore.setModelContext(modelContext)
-            
-            // Set up a timer to update the date every minute
-            Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
-                currentDate = Date()
-            }
         }
     }
 }

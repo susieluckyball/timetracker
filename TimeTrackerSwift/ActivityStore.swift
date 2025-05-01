@@ -21,13 +21,15 @@ class ActivityStore: ObservableObject {
     @Published var activities: [PersistentActivity] = []
     @Published var dailyReminderTime: Date
     @Published var lastHistoricalInputDate: Date
+    @Published var currentDate = Date()
+    private var dateUpdateTimer: Timer?
     
     // Debug property to track activity additions
     private var isDebugMode = true
     
     var dashboardActivities: [PersistentActivity] {
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
+        let today = calendar.startOfDay(for: currentDate)
         
         // Get all unique activity names
         let uniqueNames = Set(activities.map { $0.name })
@@ -45,7 +47,7 @@ class ActivityStore: ObservableObject {
     
     var historicalActivities: [Date: [PersistentActivity]] {
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
+        let today = calendar.startOfDay(for: currentDate)
         
         // Group activities by date, excluding activities with 0 duration/count
         let byDate = Dictionary(grouping: activities.filter { activity in
@@ -59,23 +61,20 @@ class ActivityStore: ObservableObject {
     }
     
     init() {
-        // Initialize daily reminder time (default to 8 PM)
-        let defaultReminderTime = Calendar.current.date(from: DateComponents(hour: 20, minute: 0)) ?? Date()
-        let savedReminderTime = UserDefaults.standard.object(forKey: "dailyReminderTime") as? Date
-        self.dailyReminderTime = savedReminderTime ?? defaultReminderTime
+        self.dailyReminderTime = UserDefaults.standard.object(forKey: "dailyReminderTime") as? Date ?? Calendar.current.date(from: DateComponents(hour: 20, minute: 0))!
+        self.lastHistoricalInputDate = UserDefaults.standard.object(forKey: "lastHistoricalInputDate") as? Date ?? Date()
         
-        // Initialize last historical input date (default to yesterday)
-        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
-        let savedHistoricalDate = UserDefaults.standard.object(forKey: "lastHistoricalInputDate") as? Date
-        self.lastHistoricalInputDate = savedHistoricalDate ?? yesterday
-        
-        // Save default values if needed
-        if savedReminderTime == nil {
-            UserDefaults.standard.set(dailyReminderTime, forKey: "dailyReminderTime")
+        // Set up a timer to update the current date every minute
+        dateUpdateTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.currentDate = Date()
+            }
         }
-        if savedHistoricalDate == nil {
-            UserDefaults.standard.set(lastHistoricalInputDate, forKey: "lastHistoricalInputDate")
-        }
+    }
+    
+    deinit {
+        dateUpdateTimer?.invalidate()
+        dateUpdateTimer = nil
     }
     
     func setModelContext(_ context: ModelContext) {
