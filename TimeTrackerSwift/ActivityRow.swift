@@ -11,51 +11,56 @@ struct ActivityRow: View {
     }
     
     var body: some View {
-        NavigationLink(destination: ActivityDetailView(
-            activity: activity,
-            weeklyData: activityStore.getWeeklyStats(for: activity),
-            activityStore: activityStore
-        )) {
-            HStack {
-                Image(systemName: theme.icon)
-                    .font(.title2)
-                    .foregroundColor(theme.color)
-                    .frame(width: 40)
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(activity.name)
-                        .font(.headline)
-                    Text(activity.toActivity().formattedValue)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                Button(action: {
-                    let currentActivity = activity.toActivity()
-                    switch currentActivity.mode {
-                    case .duration:
-                        let newDuration = currentActivity.timeSpent + (15 * 60) // Add 15 minutes to existing duration
-                        activityStore.addActivity(
-                            name: activity.name,
-                            mode: .duration,
-                            date: activity.startTime,
-                            duration: newDuration
-                        )
-                    case .count:
-                        activityStore.incrementCounter(for: activity)
-                    }
-                }) {
-                    Image(systemName: activity.mode == .duration ? "clock" : "plus.circle")
+        HStack {
+            NavigationLink(destination: ActivityDetailView(
+                activity: activity,
+                weeklyData: activityStore.getWeeklyStats(for: activity),
+                activityStore: activityStore
+            )) {
+                HStack {
+                    Image(systemName: theme.icon)
                         .font(.title2)
                         .foregroundColor(theme.color)
+                        .frame(width: 40)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(activity.name)
+                            .font(.headline)
+                        Text(activity.toActivity().formattedValue)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .onTapGesture {
+                                showingLogTime = true
+                            }
+                    }
                 }
             }
-            .padding()
-            .background(theme.color.opacity(0.1))
-            .cornerRadius(12)
+            
+            Spacer()
+            
+            Button {
+                let currentActivity = activity.toActivity()
+                switch currentActivity.mode {
+                case .duration:
+                    let newDuration = currentActivity.timeSpent + (15 * 60) // Add 15 minutes to existing duration
+                    activityStore.addActivity(
+                        name: activity.name,
+                        mode: .duration,
+                        date: activity.startTime,
+                        duration: newDuration
+                    )
+                case .count:
+                    activityStore.incrementCounter(for: activity)
+                }
+            } label: {
+                Image(systemName: activity.mode == .duration ? "clock" : "plus.circle")
+                    .font(.title2)
+                    .foregroundColor(theme.color)
+            }
         }
+        .padding()
+        .background(theme.color.opacity(0.1))
+        .cornerRadius(12)
         .buttonStyle(PlainButtonStyle())
         .sheet(isPresented: $showingLogTime) {
             LogTimeView(activityStore: activityStore, activity: activity)
