@@ -375,4 +375,48 @@ class ActivityStore: ObservableObject {
             }
         }
     }
+    
+    // Generate CSV data from activities
+    func generateCSVData() -> String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        
+        // CSV Header
+        var csvString = "Date,Activity Name,Mode,Duration (hours),Count\n"
+        
+        // Sort activities by date
+        let sortedActivities = activities.sorted { $0.startTime < $1.startTime }
+        
+        // Add each activity as a row
+        for activity in sortedActivities {
+            let date = dateFormatter.string(from: activity.startTime)
+            let duration = activity.mode == .duration ? String(format: "%.2f", activity.timeSpent / 3600.0) : "0"
+            let count = activity.mode == .count ? String(activity.count) : "0"
+            
+            // Escape any commas in the activity name
+            let escapedName = activity.name.replacingOccurrences(of: ",", with: ";")
+            
+            csvString += "\(date),\(escapedName),\(activity.mode),\(duration),\(count)\n"
+        }
+        
+        return csvString
+    }
+    
+    // Export activities to CSV file
+    func exportToCSV() -> URL? {
+        let csvString = generateCSVData()
+        
+        // Create a temporary file URL
+        let temporaryDirectoryURL = FileManager.default.temporaryDirectory
+        let fileName = "activities_export_\(Date().timeIntervalSince1970).csv"
+        let fileURL = temporaryDirectoryURL.appendingPathComponent(fileName)
+        
+        do {
+            try csvString.write(to: fileURL, atomically: true, encoding: .utf8)
+            return fileURL
+        } catch {
+            print("Error writing CSV file: \(error)")
+            return nil
+        }
+    }
 }

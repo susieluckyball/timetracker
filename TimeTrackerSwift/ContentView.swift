@@ -211,6 +211,8 @@ struct ContentView: View {
     @State private var showingHistoricalInput = false
     @State private var selectedActivity: PersistentActivity?
     @State private var showingReminderSettings = false
+    @State private var showingExportSheet = false
+    @State private var exportURL: URL?
     
     init() {
         // Initialize ActivityStore with a nil context, will be updated in onAppear
@@ -346,8 +348,8 @@ struct ContentView: View {
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showingReminderSettings = true }) {
-                        Image(systemName: "bell.circle.fill")
+                    NavigationLink(destination: SettingsView(activityStore: activityStore)) {
+                        Image(systemName: "gearshape.fill")
                             .font(.title2)
                             .foregroundStyle(
                                 LinearGradient(
@@ -409,20 +411,116 @@ struct ContentView: View {
                     )
                 }
             }
-            .sheet(isPresented: $showingReminderSettings) {
-                ReminderSettingsView(
-                    reminderTime: activityStore.dailyReminderTime,
-                    onSave: { newTime in
-                        activityStore.updateReminderTime(newTime)
-                        showingReminderSettings = false
-                    }
-                )
-            }
         }
         .onAppear {
             activityStore.setModelContext(modelContext)
         }
     }
+}
+
+// Settings View
+struct SettingsView: View {
+    @ObservedObject var activityStore: ActivityStore
+    @State private var showingReminderSettings = false
+    @State private var showingExportSheet = false
+    @State private var exportURL: URL?
+    @State private var isGeneratingCSV = false
+    
+    var body: some View {
+        List {
+            Section(header: Text("Notifications")) {
+                Button(action: { showingReminderSettings = true }) {
+                    HStack {
+                        Image(systemName: "bell.fill")
+                            .foregroundColor(.blue)
+                        Text("Daily Reminder")
+                        Spacer()
+                        Text(formatTime(activityStore.dailyReminderTime))
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            
+            Section(header: Text("Data")) {
+                Button(action: {
+                    isGeneratingCSV = true
+                    // Use async to prevent UI blocking
+                    Task {
+                        if let url = activityStore.exportToCSV() {
+                            await MainActor.run {
+                                exportURL = url
+                                showingExportSheet = true
+                                isGeneratingCSV = false
+                            }
+                        } else {
+                            await MainActor.run {
+                                isGeneratingCSV = false
+                            }
+                        }
+                    }
+                }) {
+                    HStack {
+                        Image(systemName: "square.and.arrow.up")
+                            .foregroundColor(.blue)
+                        Text("Export Data")
+                        if isGeneratingCSV {
+                            Spacer()
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle())
+                        }
+                    }
+                }
+                .disabled(isGeneratingCSV)
+            }
+        }
+        .navigationTitle("Settings")
+        .sheet(isPresented: $showingReminderSettings) {
+            ReminderSettingsView(
+                reminderTime: activityStore.dailyReminderTime,
+                onSave: { newTime in
+                    activityStore.updateReminderTime(newTime)
+                    showingReminderSettings = false
+                }
+            )
+        }
+        .sheet(isPresented: $showingExportSheet) {
+            if let url = exportURL {
+                ShareSheet(items: [url])
+            }
+        }
+        .overlay {
+            if isGeneratingCSV {
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                        .scaleEffect(1.5)
+                    Text("Generating CSV file...")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(.systemBackground).opacity(0.8))
+            }
+        }
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        return formatter.string(from: date)
+    }
+}
+
+// ShareSheet for exporting files
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+    
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        return controller
+    }
+    
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 struct ContentView_Previews: PreviewProvider {
