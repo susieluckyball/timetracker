@@ -21,11 +21,31 @@ class ActivityStore: ObservableObject {
     @Published var activities: [PersistentActivity] = []
     @Published var dailyReminderTime: Date
     @Published var lastHistoricalInputDate: Date
-    @Published var currentDate = Date()
+    @Published var currentDate = Date() {
+        didSet {
+            // Check if the day has changed
+            let calendar = Calendar.current
+            if !calendar.isDate(currentDate, inSameDayAs: oldValue) {
+                // Day has changed, ensure activities exist for the new day
+                ensureAllActivitiesExistForToday()
+                // Notify observers of the change
+                objectWillChange.send()
+            }
+        }
+    }
     private var dateUpdateTimer: Timer?
     
     // Debug property to track activity additions
     private var isDebugMode = true
+    
+    // Debug function to simulate date changes
+    func simulateDateChange(daysToAdd: Int) {
+        let calendar = Calendar.current
+        if let newDate = calendar.date(byAdding: .day, value: daysToAdd, to: currentDate) {
+            print("Debug: Simulating date change from \(currentDate) to \(newDate)")
+            currentDate = newDate
+        }
+    }
     
     var dashboardActivities: [PersistentActivity] {
         let calendar = Calendar.current
@@ -108,7 +128,7 @@ class ActivityStore: ObservableObject {
     
     private func ensureAllActivitiesExistForToday() {
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
+        let today = calendar.startOfDay(for: currentDate)
         
         // Get all unique activity names
         let uniqueNames = Set(activities.map { $0.name })
@@ -137,6 +157,9 @@ class ActivityStore: ObservableObject {
                     if let context = modelContext {
                         context.insert(newActivity)
                         activities.append(newActivity)
+                        if isDebugMode {
+                            print("Created new activity for today: \(name)")
+                        }
                     }
                 }
             }
